@@ -51,7 +51,7 @@ async function loadUsersData() {
             password: row[1] || '',
             tasks: row[2] || ''
         }));
-
+        console.log('Loaded users:', usersData);
         console.log('User data loaded successfully');
     } catch (error) {
         console.error('Error loading data:', error);
