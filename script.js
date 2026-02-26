@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Load users data from Google Sheets
 async function loadUsersData() {
     try {
-        const range = 'Sheet1!B:D'; // Columns B, C, D (Username, Password, Tasks)
+        const range = 'Sheet1!B:D'; // Columns B, C, D (Username, Password, Tasks Sheet URL) [CHANGED]
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${range}?key=${CONFIG.API_KEY}`;
 
         const response = await fetch(url);
@@ -49,7 +49,7 @@ async function loadUsersData() {
         usersData = rows.slice(1).map(row => ({
             username: row[0] || '',
             password: row[1] || '',
-            tasks: row[2] || ''
+            tasksSheetUrl: row[2] || '' // [CHANGED: was 'tasks']
         }));
         console.log('Loaded users:', usersData);
         console.log('User data loaded successfully');
@@ -59,8 +59,45 @@ async function loadUsersData() {
     }
 }
 
+// [NEW FUNCTION] Load tasks from a separate Google Sheet
+async function loadTasksFromSheet(tasksSheetUrl) {
+    try {
+        if (!tasksSheetUrl || tasksSheetUrl.trim() === '') {
+            return '';
+        }
+
+        // Extract Sheet ID from URL
+        const sheetIdMatch = tasksSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+        if (!sheetIdMatch) {
+            console.error('Invalid tasks sheet URL format');
+            return '';
+        }
+
+        const tasksSheetId = sheetIdMatch[1];
+        const range = 'Sheet1!A:A'; // Column A (Tasks)
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${tasksSheetId}/values/${range}?key=${CONFIG.API_KEY}`;
+
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            console.error('Failed to load tasks from sheet');
+            return '';
+        }
+
+        const data = await response.json();
+        const rows = data.values || [];
+
+        // Skip header row and join tasks with newlines
+        const tasks = rows.slice(1).map(row => row[0] || '').filter(task => task.length > 0);
+        return tasks.join('\n');
+    } catch (error) {
+        console.error('Error loading tasks:', error);
+        return '';
+    }
+}
+
 // Handle login
-function handleLogin(e) {
+async function handleLogin(e) { // [CHANGED: added 'async']
     e.preventDefault();
     
     const username = usernameInput.value.trim();
@@ -77,7 +114,7 @@ function handleLogin(e) {
     clearError();
 
     // Simulate API delay
-    setTimeout(() => {
+    setTimeout(async () => { // [CHANGED: added 'async']
         const user = usersData.find(u => u.username === username);
 
         if (!user) {
@@ -92,8 +129,11 @@ function handleLogin(e) {
             return;
         }
 
+        // [NEW] Load tasks from the separate sheet
+        const tasks = await loadTasksFromSheet(user.tasksSheetUrl);
+
         // Login successful
-        loginSuccess(username, user.tasks);
+        loginSuccess(username, tasks); // [CHANGED: was 'user.tasks']
         showLoading(false);
     }, 500);
 }
@@ -126,9 +166,9 @@ function displayTasks(taskString) {
 
     noTasks.style.display = 'none';
 
-    // Parse tasks (separated by commas, semicolons, or newlines)
+    // Parse tasks (separated by newlines since each task is in its own cell) [CHANGED]
     const tasks = taskString
-        .split(/[,;|\n]+/)  // Split by one or more delimiters
+        .split(/\n+/)  // [CHANGED: was '/[,;|\n]+/']
         .map(task => task.trim())
         .filter(task => task.length > 0);
 
