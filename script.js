@@ -128,7 +128,7 @@ function displayTasks(taskString) {
 
     // Parse tasks (separated by commas, semicolons, or newlines)
     const tasks = taskString
-        .split(/[,;|\n]+/)
+        .split(/\s*[,;|]\s*|/)
         .map(task => task.trim())
         .filter(task => task.length > 0);
 
