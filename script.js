@@ -16,6 +16,7 @@ const passwordInput = document.getElementById('password');
 const errorMessage = document.getElementById('errorMessage');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const welcomeUsername = document.getElementById('welcomeUsername');
+const sheetTabs = document.getElementById('sheetTabs');
 const tasksList = document.getElementById('tasksList');
 const noTasks = document.getElementById('noTasks');
 const logoutBtn = document.getElementById('logoutBtn');
@@ -59,8 +60,19 @@ async function loadUsersData() {
     }
 }
 
-// [NEW FUNCTION] Load tasks from a separate Google Sheet
-async function loadTasksFromSheet(tasksSheetUrl) {
+// [NEW FUNCTION] Load all sheet names from a tasks workbook
+async function loadSheetMetadata(tasksSheetId) {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${tasksSheetId}?key=${CONFIG.API_KEY}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error('Failed to load sheet metadata');
+    }
+    const data = await response.json();
+    return (data.sheets || []).map(s => s.properties.title);
+}
+
+// [NEW FUNCTION] Load tasks from a specific sheet tab in a tasks workbook
+async function loadTasksFromSheet(tasksSheetUrl, sheetName = 'Sheet1') {
     try {
         if (!tasksSheetUrl || tasksSheetUrl.trim() === '') {
             return '';
@@ -74,7 +86,10 @@ async function loadTasksFromSheet(tasksSheetUrl) {
         }
 
         const tasksSheetId = sheetIdMatch[1];
-        const range = 'Sheet1!A:A'; // Column A (Tasks)
+        // Properly quote sheet names for the Sheets API range notation
+        const escapedSheetName = sheetName.replace(/'/g, "''");
+        const quotedSheetName = /[^A-Za-z0-9]/.test(sheetName) ? `'${escapedSheetName}'` : escapedSheetName;
+        const range = `${encodeURIComponent(quotedSheetName + '!A:A')}`; // Column A (Tasks)
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${tasksSheetId}/values/${range}?key=${CONFIG.API_KEY}`;
 
         const response = await fetch(url);
@@ -94,6 +109,55 @@ async function loadTasksFromSheet(tasksSheetUrl) {
         console.error('Error loading tasks:', error);
         return '';
     }
+}
+
+// [NEW FUNCTION] Create sheet tabs and load the first sheet's tasks
+async function createSheetTabs(tasksSheetUrl) {
+    sheetTabs.innerHTML = '';
+
+    const sheetIdMatch = tasksSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (!sheetIdMatch) {
+        const tasks = await loadTasksFromSheet(tasksSheetUrl);
+        displayTasks(tasks);
+        return;
+    }
+
+    const tasksSheetId = sheetIdMatch[1];
+    let sheetNames;
+    try {
+        sheetNames = await loadSheetMetadata(tasksSheetId);
+    } catch (e) {
+        console.error('Could not load sheet metadata, falling back to Sheet1', e);
+        sheetNames = ['Sheet1'];
+    }
+
+    if (sheetNames.length === 0) {
+        sheetNames = ['Sheet1'];
+    }
+
+    sheetNames.forEach((name, index) => {
+        const tab = document.createElement('button');
+        tab.classList.add('sheet-tab');
+        if (index === 0) tab.classList.add('active');
+        tab.textContent = name;
+        tab.addEventListener('click', () => switchToTab(tab, tasksSheetUrl, name));
+        sheetTabs.appendChild(tab);
+    });
+
+    // Load tasks for the first sheet
+    const firstTasks = await loadTasksFromSheet(tasksSheetUrl, sheetNames[0]);
+    displayTasks(firstTasks);
+}
+
+// [NEW FUNCTION] Switch to a sheet tab
+async function switchToTab(tabElement, tasksSheetUrl, sheetName) {
+    // Update active tab styling
+    sheetTabs.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
+    tabElement.classList.add('active');
+
+    // Load tasks for the selected sheet
+    const tasks = await loadTasksFromSheet(tasksSheetUrl, sheetName);
+    displayTasks(tasks);
 }
 
 // Handle login
@@ -129,30 +193,27 @@ async function handleLogin(e) { // [CHANGED: added 'async']
             return;
         }
 
-        // [NEW] Load tasks from the separate sheet
-        const tasks = await loadTasksFromSheet(user.tasksSheetUrl);
-
-        // Login successful
-        loginSuccess(username, tasks); // [CHANGED: was 'user.tasks']
+        // [NEW] Load tasks from the separate sheet with multi-tab support
+        await loginSuccess(username, user.tasksSheetUrl); // [CHANGED: use createSheetTabs]
         showLoading(false);
     }, 500);
 }
 
 // Login successful
-function loginSuccess(username, tasks) {
+async function loginSuccess(username, tasksSheetUrl) {
     // Update welcome message
     welcomeUsername.textContent = username;
 
-    // Display tasks
-    displayTasks(tasks);
-
-    // Switch pages
+    // Switch pages first so tabs/tasks are visible when loaded
     loginPage.classList.remove('active');
     tasksPage.classList.add('active');
 
     // Clear form
     usernameInput.value = '';
     passwordInput.value = '';
+
+    // Build sheet tabs and display tasks
+    await createSheetTabs(tasksSheetUrl);
 }
 
 // Display tasks

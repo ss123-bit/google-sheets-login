@@ -193,6 +193,37 @@ body {
     to { transform: rotate(360deg); }
 }
 
+/* Sheet Tabs */
+.sheet-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.sheet-tab {
+    padding: 8px 16px;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--light-bg);
+    color: var(--text-dark);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sheet-tab:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.sheet-tab.active {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    border-color: transparent;
+    color: var(--white);
+}
+
 /* Tasks Page */
 .tasks-container {
     background: var(--white);
