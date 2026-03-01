@@ -236,7 +236,7 @@ body {
     box-shadow: var(--shadow);
     max-width: 800px;
     margin: 0 auto;
-    max-height: 600px;
+    height: 600px;
     overflow-y: auto;
 }
 
