@@ -75,39 +75,40 @@ async function loadSheetMetadata(tasksSheetId) {
 async function loadTasksFromSheet(tasksSheetUrl, sheetName = 'Sheet1') {
     try {
         if (!tasksSheetUrl || tasksSheetUrl.trim() === '') {
-            return '';
+            return [];
         }
 
         // Extract Sheet ID from URL
         const sheetIdMatch = tasksSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
         if (!sheetIdMatch) {
             console.error('Invalid tasks sheet URL format');
-            return '';
+            return [];
         }
 
         const tasksSheetId = sheetIdMatch[1];
         // Properly quote sheet names for the Sheets API range notation
         const escapedSheetName = sheetName.replace(/'/g, "''");
         const quotedSheetName = /[^A-Za-z0-9]/.test(sheetName) ? `'${escapedSheetName}'` : escapedSheetName;
-        const range = `${encodeURIComponent(quotedSheetName + '!A:A')}`; // Column A (Tasks)
+        const range = `${encodeURIComponent(quotedSheetName + '!A:B')}`; // Columns A (Tasks) and B (Notes)
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${tasksSheetId}/values/${range}?key=${CONFIG.API_KEY}&valueRenderOption=FORMATTED_VALUE`;
 
         const response = await fetch(url);
         
         if (!response.ok) {
             console.error('Failed to load tasks from sheet');
-            return '';
+            return [];
         }
 
         const data = await response.json();
         const rows = data.values || [];
 
-        // Skip header row and join tasks with newlines
-        const tasks = rows.slice(1).map(row => row[0] || '').filter(task => task.length > 0);
-        return tasks.join('\n');
+        // Skip header row, filter rows where column A (task) is non-empty, return task+note objects
+        return rows.slice(1)
+            .filter(row => (row[0] || '').trim().length > 0)
+            .map(row => ({ task: row[0] || '', note: row[1] || '' }));
     } catch (error) {
         console.error('Error loading tasks:', error);
-        return '';
+        return [];
     }
 }
 
@@ -217,36 +218,38 @@ async function loginSuccess(username, tasksSheetUrl) {
 }
 
 // Display tasks
-function displayTasks(taskString) {
+function displayTasks(taskRows) {
     tasksList.innerHTML = '';
 
-    if (!taskString || taskString.trim() === '') {
+    if (!taskRows || taskRows.length === 0) {
         noTasks.style.display = 'block';
         return;
     }
 
     noTasks.style.display = 'none';
 
-    // Parse tasks (separated by newlines since each task is in its own cell) [CHANGED]
-    const tasks = taskString
-        .split(/\n+/)  // [CHANGED: was '/[,;|\n]+/']
-        .map(task => task.trim())
-        .filter(task => task.length > 0);
-
-    if (tasks.length === 0) {
-        noTasks.style.display = 'block';
-        return;
-    }
-
-    tasks.forEach((task, index) => {
+    taskRows.forEach(({ task, note }, index) => {
         const taskItem = document.createElement('div');
         taskItem.className = 'task-item';
         taskItem.style.animation = `slideIn 0.3s ease-out ${index * 0.1}s both`;
-        
-        const taskText = document.createElement('p');
-        taskText.innerHTML = `<strong>${index + 1}.</strong> ${escapeHtml(task)}`;
-        
-        taskItem.appendChild(taskText);
+
+        const taskRow = document.createElement('div');
+        taskRow.className = 'task-row';
+
+        const taskBox = document.createElement('div');
+        taskBox.className = 'task-box';
+        taskBox.innerHTML = `<strong>${index + 1}.</strong> ${escapeHtml(task)}`;
+
+        taskRow.appendChild(taskBox);
+
+        if (note) {
+            const noteBox = document.createElement('div');
+            noteBox.className = 'note-box';
+            noteBox.textContent = note;
+            taskRow.appendChild(noteBox);
+        }
+
+        taskItem.appendChild(taskRow);
         tasksList.appendChild(taskItem);
     });
 }

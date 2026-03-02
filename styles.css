@@ -296,6 +296,31 @@ body {
     word-wrap: break-word;
 }
 
+.task-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.task-box {
+    flex: 1;
+    color: var(--text-dark);
+    line-height: 1.6;
+    word-wrap: break-word;
+}
+
+.note-box {
+    flex: 1;
+    background: var(--white);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text-light);
+    font-size: 13px;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
 .no-tasks {
     text-align: center;
     padding: 40px 20px;
@@ -329,5 +354,9 @@ body {
 
     .btn-secondary {
         width: 100%;
+    }
+
+    .task-row {
+        flex-direction: column;
     }
 }
