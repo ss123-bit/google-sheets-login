@@ -198,11 +198,47 @@ body {
 }
 
 /* Sheet Tabs */
+.sheet-tabs-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 20px;
+}
+
+.scroll-tab-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--light-bg);
+    color: var(--text-dark);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: none;
+}
+
+.scroll-tab-btn.visible {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.scroll-tab-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
 .sheet-tabs {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 8px;
-    margin-bottom: 20px;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+    flex: 1;
 }
 
 .sheet-tab {

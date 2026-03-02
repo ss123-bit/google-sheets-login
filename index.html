@@ -53,7 +53,11 @@
                 
                 <div class="tasks-content">
                     <h2>Your Tasks</h2>
-                    <div id="sheetTabs" class="sheet-tabs"></div>
+                    <div class="sheet-tabs-wrapper">
+                        <button id="scrollTabsLeft" class="scroll-tab-btn" aria-label="Scroll tabs left">&#8249;</button>
+                        <div id="sheetTabs" class="sheet-tabs"></div>
+                        <button id="scrollTabsRight" class="scroll-tab-btn" aria-label="Scroll tabs right">&#8250;</button>
+                    </div>
                     <div id="tasksList" class="tasks-list"></div>
                     <div id="noTasks" class="no-tasks">No tasks assigned yet</div>
                 </div>

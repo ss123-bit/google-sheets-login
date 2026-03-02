@@ -7,6 +7,9 @@ const CONFIG = {
     // Get from: https://console.cloud.google.com/apis/credentials
 };
 
+// How many pixels to scroll when a scroll-tab button is clicked
+const TAB_SCROLL_STEP = 150;
+
 // DOM Elements
 const loginPage = document.getElementById('loginPage');
 const tasksPage = document.getElementById('tasksPage');
@@ -20,6 +23,8 @@ const sheetTabs = document.getElementById('sheetTabs');
 const tasksList = document.getElementById('tasksList');
 const noTasks = document.getElementById('noTasks');
 const logoutBtn = document.getElementById('logoutBtn');
+const scrollTabsLeft = document.getElementById('scrollTabsLeft');
+const scrollTabsRight = document.getElementById('scrollTabsRight');
 
 // State
 let usersData = [];
@@ -28,6 +33,13 @@ let usersData = [];
 document.addEventListener('DOMContentLoaded', () => {
     loginForm.addEventListener('submit', handleLogin);
     logoutBtn.addEventListener('click', handleLogout);
+    scrollTabsLeft.addEventListener('click', () => {
+        sheetTabs.scrollBy({ left: -TAB_SCROLL_STEP, behavior: 'smooth' });
+    });
+    scrollTabsRight.addEventListener('click', () => {
+        sheetTabs.scrollBy({ left: TAB_SCROLL_STEP, behavior: 'smooth' });
+    });
+    sheetTabs.addEventListener('scroll', updateScrollButtons);
     loadUsersData();
 });
 
@@ -112,9 +124,19 @@ async function loadTasksFromSheet(tasksSheetUrl, sheetName = 'Sheet1') {
     }
 }
 
+// Update visibility of scroll buttons based on tab overflow
+function updateScrollButtons() {
+    const hasOverflow = sheetTabs.scrollWidth > sheetTabs.clientWidth;
+    const atStart = sheetTabs.scrollLeft <= 0;
+    const atEnd = sheetTabs.scrollLeft + sheetTabs.clientWidth >= sheetTabs.scrollWidth - 1; // -1 accounts for subpixel rounding
+    scrollTabsLeft.classList.toggle('visible', hasOverflow && !atStart);
+    scrollTabsRight.classList.toggle('visible', hasOverflow && !atEnd);
+}
+
 // [NEW FUNCTION] Create sheet tabs and load the first sheet's tasks
 async function createSheetTabs(tasksSheetUrl) {
     sheetTabs.innerHTML = '';
+    updateScrollButtons();
 
     const sheetIdMatch = tasksSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
     if (!sheetIdMatch) {
@@ -148,6 +170,7 @@ async function createSheetTabs(tasksSheetUrl) {
     // Load tasks for the first sheet
     const firstTasks = await loadTasksFromSheet(tasksSheetUrl, sheetNames[0]);
     displayTasks(firstTasks);
+    updateScrollButtons();
 }
 
 // [NEW FUNCTION] Switch to a sheet tab
