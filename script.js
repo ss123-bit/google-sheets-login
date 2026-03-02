@@ -90,7 +90,7 @@ async function loadTasksFromSheet(tasksSheetUrl, sheetName = 'Sheet1') {
         const escapedSheetName = sheetName.replace(/'/g, "''");
         const quotedSheetName = /[^A-Za-z0-9]/.test(sheetName) ? `'${escapedSheetName}'` : escapedSheetName;
         const range = `${encodeURIComponent(quotedSheetName + '!A:A')}`; // Column A (Tasks)
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${tasksSheetId}/values/${range}?key=${CONFIG.API_KEY}`;
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${tasksSheetId}/values/${range}?key=${CONFIG.API_KEY}&valueRenderOption=FORMATTED_VALUE`;
 
         const response = await fetch(url);
         
