@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Tasks Dashboard</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="https://accounts.google.com/gsi/client" async></script>
 </head>
 <body>
     <div class="container">
@@ -64,10 +65,32 @@
             </div>
             <footer class="tasks-footer">
                 <button id="settingsBtn" class="btn btn-settings">&#9881; Settings</button>
+                <button id="newCategoryBtn" class="btn btn-new-category">+ New Category</button>
             </footer>
         </div>
     </div>
 
+    <!-- New Category Modal -->
+    <div id="newCategoryModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h2>New Category</h2>
+            <div class="form-group">
+                <label for="categoryName">Category Name</label>
+                <input type="text" id="categoryName" placeholder="Enter category name">
+            </div>
+            <div class="form-group">
+                <label for="categoryKey">Category Key</label>
+                <input type="text" id="categoryKey" placeholder="Enter category key">
+            </div>
+            <div id="newCategoryError" class="modal-error"></div>
+            <div class="modal-actions">
+                <button id="newCategoryCancelBtn" class="btn btn-secondary">Cancel</button>
+                <button id="newCategoryOkBtn" class="btn btn-primary-small">OK</button>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
+    <script src="user_actions.js"></script>
 </body>
 </html>
