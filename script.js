@@ -5,7 +5,7 @@ const CONFIG = {
     // Copy the SHEET_ID part from the URL
     API_KEY: 'AIzaSyCIqWMa3w7UasetnEDJzyq3-zGA19sfLS0',
     // Get from: https://console.cloud.google.com/apis/credentials
-    APPS_SCRIPT_URL: ''
+    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxh5asbsyRiX_MOC8qOMBqsDaNe7mERpHWNyP8ei-I_9n8K3xgHVxUMS369JhEGCE38/exec'
     // Google Apps Script Web App URL - required for write operations (New Category).
     // Example: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
     // See user_actions.js for the Apps Script code to deploy.
