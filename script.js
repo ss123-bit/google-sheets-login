@@ -3,8 +3,12 @@ const CONFIG = {
     SHEET_ID: '1V4CU3ONpLEURsoJHrwUZWJYhX8827I7yn5vhHTH3rwE',
     // Get this from: https://docs.google.com/spreadsheets/d/SHEET_ID/edit
     // Copy the SHEET_ID part from the URL
-    API_KEY: 'AIzaSyCIqWMa3w7UasetnEDJzyq3-zGA19sfLS0'
+    API_KEY: 'AIzaSyCIqWMa3w7UasetnEDJzyq3-zGA19sfLS0',
     // Get from: https://console.cloud.google.com/apis/credentials
+    APPS_SCRIPT_URL: ''
+    // Google Apps Script Web App URL - required for write operations (New Category).
+    // Example: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
+    // See user_actions.js for the Apps Script code to deploy.
 };
 
 // How many pixels to scroll when a scroll-tab button is clicked
