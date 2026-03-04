@@ -1,51 +1,16 @@
 // user_actions.js - Handles user actions like creating new categories
 //
-// Write operations (creating a sheet, updating the Settings sheet) are performed
-// via a Google Apps Script Web App that runs server-side with the owner's
-// credentials. No OAuth 2.0 or Client ID is required in the browser.
+// Write operations (creating a sheet, updating the Settings sheet) are now
+// handled by Cloudflare Pages Functions in the functions/ directory using a
+// Google Service Account – no browser-exposed credentials required.
 //
-// ── Setup ────────────────────────────────────────────────────────────────────
-// 1. Open https://script.google.com and create a new project.
-// 2. Paste the code below (between the dashed lines) into the editor.
-// 3. Click Deploy → New Deployment → Web App.
-//    · Execute as: Me
-//    · Who has access: Anyone
-// 4. Copy the Web App URL and paste it into CONFIG.APPS_SCRIPT_URL in script.js.
+// The /api/sheets/create-sheet endpoint:
+//   POST { sheetId, title, settingsRow }
+//   Creates a new sheet tab and appends a row to the Settings sheet.
 //
-// ── Apps Script code ─────────────────────────────────────────────────────────
-// function doPost(e) {
-//   try {
-//     var params = JSON.parse(e.postData.contents);
-//     var spreadsheetId = params.spreadsheetId;
-//     var categoryName  = params.categoryName;
-//     var categoryKey   = params.categoryKey;
-//
-//     var ss = SpreadsheetApp.openById(spreadsheetId);
-//
-//     // Check for duplicate sheet name before creating
-//     if (ss.getSheetByName(categoryName)) {
-//       return ContentService
-//         .createTextOutput(JSON.stringify({ success: false, error: 'A sheet named "' + categoryName + '" already exists.' }))
-//         .setMimeType(ContentService.MimeType.JSON);
-//     }
-//
-//     // Create new sheet at the end of the workbook
-//     ss.insertSheet(categoryName, ss.getSheets().length);
-//
-//     // Append category name + key to the Settings sheet
-//     var settingsSheet = ss.getSheetByName('Settings');
-//     settingsSheet.appendRow([categoryName, categoryKey]);
-//
-//     return ContentService
-//       .createTextOutput(JSON.stringify({ success: true }))
-//       .setMimeType(ContentService.MimeType.JSON);
-//   } catch (err) {
-//     return ContentService
-//       .createTextOutput(JSON.stringify({ success: false, error: err.message }))
-//       .setMimeType(ContentService.MimeType.JSON);
-//   }
-// }
-// ─────────────────────────────────────────────────────────────────────────────
+// If APP_AUTH_SECRET is configured as a Cloudflare Pages environment variable,
+// set CONFIG.APP_AUTH in script.js to the same value so that write requests
+// are accepted by the backend.
 
 const newCategoryBtn = document.getElementById('newCategoryBtn');
 const newCategoryModal = document.getElementById('newCategoryModal');
@@ -97,11 +62,6 @@ async function handleNewCategoryOk() {
         return;
     }
 
-    if (!CONFIG.APPS_SCRIPT_URL) {
-        newCategoryError.textContent = 'APPS_SCRIPT_URL is not configured. Please set CONFIG.APPS_SCRIPT_URL in script.js.';
-        return;
-    }
-
     if (!currentTasksSheetUrl) {
         // currentTasksSheetUrl is defined as a global in script.js and set after login
         newCategoryError.textContent = 'No tasks sheet loaded. Please log in first.';
@@ -120,26 +80,43 @@ async function handleNewCategoryOk() {
     newCategoryError.textContent = '';
 
     try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (CONFIG.APP_AUTH) {
+            headers['X-App-Auth'] = CONFIG.APP_AUTH;
+        }
+
         let response;
         try {
-            // Use text/plain to avoid a CORS preflight; the Apps Script web app
-            // accepts JSON in the request body regardless of Content-Type.
-            response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+            response = await fetch('/api/sheets/create-sheet', {
                 method: 'POST',
-                headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify({ spreadsheetId, categoryName, categoryKey })
+                headers,
+                body: JSON.stringify({
+                    sheetId: spreadsheetId,
+                    title: categoryName,
+                    settingsRow: [categoryName, categoryKey],
+                }),
             });
         } catch (_) {
-            throw new Error('Failed to connect to Apps Script. Please check your connection and APPS_SCRIPT_URL configuration.');
+            throw new Error('Failed to connect to the server. Please check your connection.');
+        }
+
+        let result;
+        try {
+            result = await response.json();
+        } catch (_) {
+            throw new Error(`Invalid response from server (status ${response.status}).`);
         }
 
         if (!response.ok) {
-            throw new Error(`Server responded with status ${response.status}.`);
+            throw new Error(result.error || `Server responded with status ${response.status}.`);
         }
 
-        const result = await response.json();
         if (!result.success) {
             throw new Error(result.error || 'Failed to create category.');
+        }
+
+        if (result.warning) {
+            console.warn('New category warning:', result.warning);
         }
 
         location.reload();

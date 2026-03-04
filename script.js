@@ -3,12 +3,10 @@ const CONFIG = {
     SHEET_ID: '1V4CU3ONpLEURsoJHrwUZWJYhX8827I7yn5vhHTH3rwE',
     // Get this from: https://docs.google.com/spreadsheets/d/SHEET_ID/edit
     // Copy the SHEET_ID part from the URL
-    API_KEY: 'AIzaSyCIqWMa3w7UasetnEDJzyq3-zGA19sfLS0',
-    // Get from: https://console.cloud.google.com/apis/credentials
-    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxh5asbsyRiX_MOC8qOMBqsDaNe7mERpHWNyP8ei-I_9n8K3xgHVxUMS369JhEGCE38/exec'
-    // Google Apps Script Web App URL - required for write operations (New Category).
-    // Example: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'
-    // See user_actions.js for the Apps Script code to deploy.
+    APP_AUTH: '',
+    // Optional shared secret sent as X-App-Auth header for write operations.
+    // Must match the APP_AUTH_SECRET environment variable set in Cloudflare Pages.
+    // Leave empty if APP_AUTH_SECRET is not configured on the server.
 };
 
 // How many pixels to scroll when a scroll-tab button is clicked
@@ -54,12 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadUsersData() {
     try {
         const range = 'Sheet1!B:D'; // Columns B, C, D (Username, Password, Tasks Sheet URL) [CHANGED]
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${range}?key=${CONFIG.API_KEY}`;
+        const url = `/api/sheets/values?sheetId=${encodeURIComponent(CONFIG.SHEET_ID)}&range=${encodeURIComponent(range)}`;
 
         const response = await fetch(url);
         
         if (!response.ok) {
-            throw new Error('Failed to load user data. Check your Sheet ID and API Key.');
+            throw new Error('Failed to load user data. Check server configuration and sheet sharing.');
         }
 
         const data = await response.json();
@@ -81,7 +79,7 @@ async function loadUsersData() {
 
 // [NEW FUNCTION] Load all sheet names from a tasks workbook
 async function loadSheetMetadata(tasksSheetId) {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${tasksSheetId}?key=${CONFIG.API_KEY}`;
+    const url = `/api/sheets/metadata?sheetId=${encodeURIComponent(tasksSheetId)}`;
     const response = await fetch(url);
     if (!response.ok) {
         throw new Error('Failed to load sheet metadata');
@@ -108,8 +106,8 @@ async function loadTasksFromSheet(tasksSheetUrl, sheetName = 'Sheet1') {
         // Properly quote sheet names for the Sheets API range notation
         const escapedSheetName = sheetName.replace(/'/g, "''");
         const quotedSheetName = /[^A-Za-z0-9]/.test(sheetName) ? `'${escapedSheetName}'` : escapedSheetName;
-        const range = `${encodeURIComponent(quotedSheetName + '!A:B')}`; // Columns A (Tasks) and B (Notes)
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${tasksSheetId}/values/${range}?key=${CONFIG.API_KEY}`;
+        const range = `${quotedSheetName}!A:B`; // Columns A (Tasks) and B (Notes)
+        const url = `/api/sheets/values?sheetId=${encodeURIComponent(tasksSheetId)}&range=${encodeURIComponent(range)}`;
 
         const response = await fetch(url);
         
