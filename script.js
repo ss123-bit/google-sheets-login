@@ -1,6 +1,6 @@
 // Configuration - UPDATE THESE VALUES
 const CONFIG = {
-    SHEET_ID: '1V4CU3ONpLEURsoJHrwUZWJYhX8827I7yn5vhHTH3rwE',
+    SHEET_ID: '14oG_k6YCeXylEg3OGbmlGxzlh1NnpKsOfxIQQdebYOQ',
     // Get this from: https://docs.google.com/spreadsheets/d/SHEET_ID/edit
     // Copy the SHEET_ID part from the URL
     APP_AUTH: '',
