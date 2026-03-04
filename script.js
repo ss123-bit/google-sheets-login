@@ -25,9 +25,11 @@ const noTasks = document.getElementById('noTasks');
 const logoutBtn = document.getElementById('logoutBtn');
 const scrollTabsLeft = document.getElementById('scrollTabsLeft');
 const scrollTabsRight = document.getElementById('scrollTabsRight');
+const settingsBtn = document.getElementById('settingsBtn');
 
 // State
 let usersData = [];
+let currentTasksSheetUrl = '';
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -40,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sheetTabs.scrollBy({ left: TAB_SCROLL_STEP, behavior: 'smooth' });
     });
     sheetTabs.addEventListener('scroll', updateScrollButtons);
+    settingsBtn.addEventListener('click', handleSettingsClick);
     loadUsersData();
 });
 
@@ -135,6 +138,7 @@ function updateScrollButtons() {
 
 // [NEW FUNCTION] Create sheet tabs and load the first sheet's tasks
 async function createSheetTabs(tasksSheetUrl) {
+    currentTasksSheetUrl = tasksSheetUrl;
     sheetTabs.innerHTML = '';
     updateScrollButtons();
 
@@ -158,7 +162,18 @@ async function createSheetTabs(tasksSheetUrl) {
         sheetNames = ['Sheet1'];
     }
 
-    sheetNames.forEach((name, index) => {
+    // Skip the 'Settings' sheet from the tabs
+    const filteredNames = sheetNames.filter(name => name !== 'Settings');
+
+    if (filteredNames.length === 0) {
+        tasksList.innerHTML = '';
+        noTasks.textContent = 'No task sheets found. Use the Settings button below to view settings.';
+        noTasks.style.display = 'block';
+        updateScrollButtons();
+        return;
+    }
+
+    filteredNames.forEach((name, index) => {
         const tab = document.createElement('button');
         tab.classList.add('sheet-tab');
         if (index === 0) tab.classList.add('active');
@@ -168,7 +183,7 @@ async function createSheetTabs(tasksSheetUrl) {
     });
 
     // Load tasks for the first sheet
-    const firstTasks = await loadTasksFromSheet(tasksSheetUrl, sheetNames[0]);
+    const firstTasks = await loadTasksFromSheet(tasksSheetUrl, filteredNames[0]);
     displayTasks(firstTasks);
     updateScrollButtons();
 }
@@ -181,6 +196,18 @@ async function switchToTab(tabElement, tasksSheetUrl, sheetName) {
 
     // Load tasks for the selected sheet
     const tasks = await loadTasksFromSheet(tasksSheetUrl, sheetName);
+    displayTasks(tasks);
+}
+
+// [NEW FUNCTION] Load and display data from the 'Settings' sheet
+async function handleSettingsClick() {
+    if (!currentTasksSheetUrl) {
+        return;
+    }
+    // Deselect all tabs to indicate we are viewing Settings
+    sheetTabs.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
+
+    const tasks = await loadTasksFromSheet(currentTasksSheetUrl, 'Settings');
     displayTasks(tasks);
 }
 
@@ -243,6 +270,7 @@ async function loginSuccess(username, tasksSheetUrl) {
 // Display tasks
 function displayTasks(taskRows) {
     tasksList.innerHTML = '';
+    noTasks.textContent = 'No tasks assigned yet';
 
     if (!taskRows || taskRows.length === 0) {
         noTasks.style.display = 'block';

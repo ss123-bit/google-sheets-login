@@ -364,6 +364,25 @@ body {
     font-size: 16px;
 }
 
+/* Settings footer */
+.tasks-footer {
+    display: flex;
+    justify-content: center;
+    margin-top: 16px;
+}
+
+.btn-settings {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--white);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.btn-settings:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: var(--white);
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     .login-box {
