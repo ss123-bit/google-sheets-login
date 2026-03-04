@@ -1,4 +1,51 @@
 // user_actions.js - Handles user actions like creating new categories
+//
+// Write operations (creating a sheet, updating the Settings sheet) are performed
+// via a Google Apps Script Web App that runs server-side with the owner's
+// credentials. No OAuth 2.0 or Client ID is required in the browser.
+//
+// ── Setup ────────────────────────────────────────────────────────────────────
+// 1. Open https://script.google.com and create a new project.
+// 2. Paste the code below (between the dashed lines) into the editor.
+// 3. Click Deploy → New Deployment → Web App.
+//    · Execute as: Me
+//    · Who has access: Anyone
+// 4. Copy the Web App URL and paste it into CONFIG.APPS_SCRIPT_URL in script.js.
+//
+// ── Apps Script code ─────────────────────────────────────────────────────────
+// function doPost(e) {
+//   try {
+//     var params = JSON.parse(e.postData.contents);
+//     var spreadsheetId = params.spreadsheetId;
+//     var categoryName  = params.categoryName;
+//     var categoryKey   = params.categoryKey;
+//
+//     var ss = SpreadsheetApp.openById(spreadsheetId);
+//
+//     // Check for duplicate sheet name before creating
+//     if (ss.getSheetByName(categoryName)) {
+//       return ContentService
+//         .createTextOutput(JSON.stringify({ success: false, error: 'A sheet named "' + categoryName + '" already exists.' }))
+//         .setMimeType(ContentService.MimeType.JSON);
+//     }
+//
+//     // Create new sheet at the end of the workbook
+//     ss.insertSheet(categoryName, ss.getSheets().length);
+//
+//     // Append category name + key to the Settings sheet
+//     var settingsSheet = ss.getSheetByName('Settings');
+//     settingsSheet.appendRow([categoryName, categoryKey]);
+//
+//     return ContentService
+//       .createTextOutput(JSON.stringify({ success: true }))
+//       .setMimeType(ContentService.MimeType.JSON);
+//   } catch (err) {
+//     return ContentService
+//       .createTextOutput(JSON.stringify({ success: false, error: err.message }))
+//       .setMimeType(ContentService.MimeType.JSON);
+//   }
+// }
+// ─────────────────────────────────────────────────────────────────────────────
 
 const newCategoryBtn = document.getElementById('newCategoryBtn');
 const newCategoryModal = document.getElementById('newCategoryModal');
@@ -7,18 +54,6 @@ const newCategoryCancelBtn = document.getElementById('newCategoryCancelBtn');
 const categoryNameInput = document.getElementById('categoryName');
 const categoryKeyInput = document.getElementById('categoryKey');
 const newCategoryError = document.getElementById('newCategoryError');
-
-let tokenClient = null;
-
-function initTokenClient() {
-    if (typeof google !== 'undefined' && google.accounts && google.accounts.oauth2 && CONFIG.CLIENT_ID) {
-        tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: CONFIG.CLIENT_ID,
-            scope: 'https://www.googleapis.com/auth/spreadsheets',
-            callback: () => {}
-        });
-    }
-}
 
 document.addEventListener('DOMContentLoaded', () => {
     newCategoryBtn.addEventListener('click', () => {
@@ -45,13 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
     categoryKeyInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') handleNewCategoryOk();
     });
-
-    // Initialize the GIS token client once the library has loaded
-    if (typeof google !== 'undefined') {
-        initTokenClient();
-    } else {
-        window.addEventListener('load', initTokenClient);
-    }
 });
 
 async function handleNewCategoryOk() {
@@ -69,6 +97,11 @@ async function handleNewCategoryOk() {
         return;
     }
 
+    if (!CONFIG.APPS_SCRIPT_URL) {
+        newCategoryError.textContent = 'APPS_SCRIPT_URL is not configured. Please set CONFIG.APPS_SCRIPT_URL in script.js.';
+        return;
+    }
+
     if (!currentTasksSheetUrl) {
         // currentTasksSheetUrl is defined as a global in script.js and set after login
         newCategoryError.textContent = 'No tasks sheet loaded. Please log in first.';
@@ -81,16 +114,33 @@ async function handleNewCategoryOk() {
         return;
     }
 
-    const tasksSheetId = sheetIdMatch[1];
+    const spreadsheetId = sheetIdMatch[1];
 
     newCategoryOkBtn.disabled = true;
     newCategoryError.textContent = '';
 
     try {
-        const accessToken = await getAccessToken();
+        let response;
+        try {
+            // Use text/plain to avoid a CORS preflight; the Apps Script web app
+            // accepts JSON in the request body regardless of Content-Type.
+            response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ spreadsheetId, categoryName, categoryKey })
+            });
+        } catch (_) {
+            throw new Error('Failed to connect to Apps Script. Please check your connection and APPS_SCRIPT_URL configuration.');
+        }
 
-        await createNewSheet(tasksSheetId, categoryName, accessToken);
-        await appendToSettingsSheet(tasksSheetId, categoryName, categoryKey, accessToken);
+        if (!response.ok) {
+            throw new Error(`Server responded with status ${response.status}.`);
+        }
+
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to create category.');
+        }
 
         location.reload();
     } catch (err) {
@@ -100,78 +150,3 @@ async function handleNewCategoryOk() {
     }
 }
 
-function getAccessToken() {
-    return new Promise((resolve, reject) => {
-        // Ensure the token client is initialized (GIS may have loaded after DOMContentLoaded)
-        if (!tokenClient) {
-            initTokenClient();
-        }
-        if (!tokenClient) {
-            reject(new Error(
-                CONFIG.CLIENT_ID
-                    ? 'Google Identity Services not loaded. Please refresh and try again.'
-                    : 'CLIENT_ID is not configured. Please set CONFIG.CLIENT_ID in script.js.'
-            ));
-            return;
-        }
-
-        tokenClient.callback = (response) => {
-            if (response.error) {
-                reject(new Error(response.error));
-            } else {
-                resolve(response.access_token);
-            }
-        };
-
-        tokenClient.requestAccessToken();
-    });
-}
-
-async function createNewSheet(spreadsheetId, sheetName, accessToken) {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`;
-    const body = {
-        requests: [{
-            addSheet: {
-                properties: {
-                    title: sheetName
-                }
-            }
-        }]
-    };
-
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to create new sheet.');
-    }
-}
-
-async function appendToSettingsSheet(spreadsheetId, categoryName, categoryKey, accessToken) {
-    const range = 'Settings!A:B';
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`;
-    const body = {
-        values: [[categoryName, categoryKey]]
-    };
-
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to update Settings sheet.');
-    }
-}
