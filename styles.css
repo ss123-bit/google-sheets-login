@@ -396,6 +396,37 @@ body {
     border-color: var(--white);
 }
 
+.btn-new-task {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--white);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.btn-new-task:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: var(--white);
+}
+
+/* Modal select */
+.modal-select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--white);
+    color: var(--text-dark);
+    transition: border-color 0.3s;
+    cursor: pointer;
+}
+
+.modal-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
 /* Modal */
 .modal-overlay {
     position: fixed;
