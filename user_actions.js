@@ -12,9 +12,10 @@
 //   POST { sheetId, range, values }
 //   Appends rows to a given range in a Google Sheet.
 //
-// If APP_AUTH_SECRET is configured as a Cloudflare Pages environment variable,
-// set CONFIG.APP_AUTH in script.js to the same value so that write requests
-// are accepted by the backend.
+// Authentication: all requests include the session token stored in
+// sessionStorage (set by script.js after a successful /api/auth/login call)
+// via the X-App-Auth header.  The session token is issued by the server and
+// is never visible in the page source.
 
 const newCategoryBtn = document.getElementById('newCategoryBtn');
 const newCategoryModal = document.getElementById('newCategoryModal');
@@ -139,9 +140,7 @@ async function handleNewCategoryOk() {
 
     try {
         const headers = { 'Content-Type': 'application/json' };
-        if (CONFIG.APP_AUTH) {
-            headers['X-App-Auth'] = CONFIG.APP_AUTH;
-        }
+        headers['X-App-Auth'] = getSessionToken() || '';
 
         let response;
         try {
@@ -220,9 +219,7 @@ async function handleNewTaskOk() {
 
     try {
         const headers = { 'Content-Type': 'application/json' };
-        if (CONFIG.APP_AUTH) {
-            headers['X-App-Auth'] = CONFIG.APP_AUTH;
-        }
+        headers['X-App-Auth'] = getSessionToken() || '';
 
         // Build the range: quote sheet names that contain non-alphanumeric characters
         const escapedSheet = selectedSheet.replace(/'/g, "''");
