@@ -119,7 +119,8 @@ async function handleNewCategoryOk() {
             console.warn('New category warning:', result.warning);
         }
 
-        location.reload();
+        await createSheetTabs(currentTasksSheetUrl);
+        newCategoryModal.classList.add('hidden');
     } catch (err) {
         console.error('Error creating category:', err);
         newCategoryError.textContent = err.message || 'Failed to create category.';
