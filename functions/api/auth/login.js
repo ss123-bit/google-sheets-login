@@ -1,0 +1,242 @@
+// functions/api/auth/login.js
+// POST /api/auth/login
+// Body: { username, password }
+//
+// Validates user credentials against the users spreadsheet (APP_SHEET_ID /
+// APP_USERS_SHEET_RANGE) and returns a short-lived HMAC-signed session token.
+//
+// Required environment variables:
+//   APP_AUTH_SECRET     – shared HMAC secret used to sign session tokens
+//   APP_SHEET_ID        – spreadsheet ID that contains the users tab
+//                         (comma-separated if multiple IDs are allowed)
+//   APP_USERS_SHEET_RANGE – optional range of users data, defaults to Sheet1!B:D
+//                           Columns: Username | PasswordHash | TasksSheetUrl
+//
+// Password column format:
+//   Plaintext (legacy):  any string without a "pbkdf2:" prefix  →  accepted but
+//                        triggers a server-side warning; migrate to hashed form.
+//   PBKDF2 hash:         "pbkdf2:<iterations>:<hex-salt>:<hex-hash>"
+//                        e.g. "pbkdf2:100000:a1b2c3...:d4e5f6..."
+
+import {
+    getGoogleAccessToken,
+    getCorsHeaders,
+    jsonResponse,
+    errorResponse,
+    createSessionToken,
+} from '../../_shared.js';
+
+// ---------------------------------------------------------------------------
+// In-memory rate limiter (per edge isolate).
+// Limits to MAX_ATTEMPTS login attempts per window per IP.
+// NOTE: This limiter is per-isolate and not distributed across edge locations.
+// An attacker could bypass it by routing requests through different PoPs.
+// For stronger guarantees, replace with a Durable Object or KV-backed limiter.
+// ---------------------------------------------------------------------------
+const MAX_ATTEMPTS = 10;
+const WINDOW_MS = 60 * 1000; // 1 minute
+const attempts = new Map(); // ip -> { count, resetAt }
+
+function checkRateLimit(ip) {
+    const now = Date.now();
+    const entry = attempts.get(ip);
+
+    if (!entry || now > entry.resetAt) {
+        attempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+        return true;
+    }
+
+    if (entry.count >= MAX_ATTEMPTS) {
+        return false;
+    }
+
+    entry.count += 1;
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// PBKDF2 password verification
+// ---------------------------------------------------------------------------
+
+/**
+ * Hashes a password using PBKDF2-SHA-256 with the given salt.
+ * Returns a hex string.
+ */
+async function pbkdf2Hash(password, saltHex, iterations) {
+    const salt = hexToBytes(saltHex);
+    const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(password),
+        'PBKDF2',
+        false,
+        ['deriveBits'],
+    );
+    const bits = await crypto.subtle.deriveBits(
+        { name: 'PBKDF2', hash: 'SHA-256', salt, iterations },
+        keyMaterial,
+        256,
+    );
+    return bytesToHex(new Uint8Array(bits));
+}
+
+function hexToBytes(hex) {
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+    }
+    return bytes;
+}
+
+function bytesToHex(bytes) {
+    return Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+}
+
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ */
+async function safeEqual(a, b) {
+    const enc = new TextEncoder();
+    const ka = await crypto.subtle.importKey('raw', enc.encode(a), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const kb = await crypto.subtle.importKey('raw', enc.encode(b), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const dummy = enc.encode('compare');
+    const [sa, sb] = await Promise.all([
+        crypto.subtle.sign('HMAC', ka, dummy),
+        crypto.subtle.sign('HMAC', kb, dummy),
+    ]);
+    return bytesToHex(new Uint8Array(sa)) === bytesToHex(new Uint8Array(sb));
+}
+
+/**
+ * Verifies a password against a stored value.
+ * Supports both PBKDF2 hashed passwords and legacy plaintext passwords.
+ * Returns { ok: boolean, legacy: boolean }.
+ */
+async function verifyPassword(inputPassword, storedPassword) {
+    if (storedPassword.startsWith('pbkdf2:')) {
+        const parts = storedPassword.split(':');
+        if (parts.length !== 4) return { ok: false, legacy: false };
+        const [, iterStr, saltHex, storedHash] = parts;
+        const iterations = parseInt(iterStr, 10);
+        if (!Number.isFinite(iterations) || iterations < 1) return { ok: false, legacy: false };
+        const computedHash = await pbkdf2Hash(inputPassword, saltHex, iterations);
+        const ok = await safeEqual(computedHash, storedHash);
+        return { ok, legacy: false };
+    }
+
+    // Legacy plaintext comparison.
+    const ok = await safeEqual(inputPassword, storedPassword);
+    return { ok, legacy: true };
+}
+
+// ---------------------------------------------------------------------------
+// Route handlers
+// ---------------------------------------------------------------------------
+
+export async function onRequestOptions({ request, env }) {
+    return new Response(null, { status: 204, headers: getCorsHeaders(request, env) });
+}
+
+export async function onRequestPost({ request, env }) {
+    const cors = getCorsHeaders(request, env);
+
+    // --- Rate limiting ---
+    const ip =
+        request.headers.get('CF-Connecting-IP') ||
+        request.headers.get('X-Forwarded-For') ||
+        'unknown';
+
+    if (!checkRateLimit(ip)) {
+        return errorResponse('Too many login attempts. Please try again later.', 429, cors);
+    }
+
+    // --- Validate env ---
+    if (!env.APP_AUTH_SECRET) {
+        console.error('APP_AUTH_SECRET is not configured');
+        return errorResponse('Server configuration error.', 500, cors);
+    }
+
+    const sheetIdRaw = env.APP_SHEET_ID;
+    if (!sheetIdRaw) {
+        console.error('APP_SHEET_ID is not configured');
+        return errorResponse('Server configuration error.', 500, cors);
+    }
+    // Use the first allowed sheet ID as the users spreadsheet.
+    // If your users live in a different spreadsheet than the tasks sheets,
+    // set APP_USERS_SHEET_ID to point specifically to the users spreadsheet.
+    // Otherwise, the first ID in APP_SHEET_ID is used.
+    const usersSheetId = (env.APP_USERS_SHEET_ID || sheetIdRaw.split(',')[0]).trim();
+
+    const usersRange = (env.APP_USERS_SHEET_RANGE || 'Sheet1!B:D').trim();
+
+    // --- Parse body ---
+    let body;
+    try {
+        body = await request.json();
+    } catch {
+        return errorResponse('Invalid request body.', 400, cors);
+    }
+
+    const { username, password } = body || {};
+    if (!username || !password || typeof username !== 'string' || typeof password !== 'string') {
+        return errorResponse('username and password are required.', 400, cors);
+    }
+
+    // --- Load users from Google Sheets ---
+    let token;
+    try {
+        token = await getGoogleAccessToken(env);
+    } catch {
+        console.error('Failed to obtain Google access token');
+        return errorResponse('Authentication service unavailable.', 503, cors);
+    }
+
+    let rows;
+    try {
+        const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(usersSheetId)}/values/${encodeURIComponent(usersRange)}`;
+        const res = await fetch(apiUrl, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) {
+            console.error('Sheets API error fetching users');
+            return errorResponse('Authentication service unavailable.', 503, cors);
+        }
+        const data = await res.json();
+        rows = data.values || [];
+    } catch {
+        console.error('Network error fetching users from Sheets');
+        return errorResponse('Authentication service unavailable.', 503, cors);
+    }
+
+    // --- Find user (skip header row) ---
+    const userRow = rows.slice(1).find((r) => (r[0] || '').trim() === username.trim());
+
+    if (!userRow) {
+        // Constant-time delay to reduce user enumeration via timing differences.
+        await new Promise((r) => setTimeout(r, 500));
+        return errorResponse('Invalid username or password.', 401, cors);
+    }
+
+    const storedPassword = userRow[1] || '';
+    const tasksSheetUrl = userRow[2] || '';
+
+    // --- Verify password ---
+    const { ok, legacy } = await verifyPassword(password, storedPassword);
+    if (!ok) {
+        return errorResponse('Invalid username or password.', 401, cors);
+    }
+
+    if (legacy) {
+        console.warn(`User "${username}" is using a plaintext password. Migrate to PBKDF2 hash.`);
+    }
+
+    // --- Issue session token ---
+    let sessionToken;
+    try {
+        sessionToken = await createSessionToken(username, env);
+    } catch {
+        console.error('Failed to create session token');
+        return errorResponse('Authentication service unavailable.', 503, cors);
+    }
+
+    return jsonResponse({ token: sessionToken, tasksSheetUrl }, 200, cors);
+}

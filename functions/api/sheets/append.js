@@ -2,17 +2,19 @@
 // POST /api/sheets/append
 // Body: { sheetId, range, values }
 // Appends rows to a Google Sheets range using the service account.
-// Requires X-App-Auth header matching APP_AUTH_SECRET env var (when set).
+// Requires X-App-Auth header containing a valid session token.
 
-import { getGoogleAccessToken, jsonResponse, errorResponse, CORS_HEADERS, checkAuth } from '../../_shared.js';
+import { getGoogleAccessToken, jsonResponse, errorResponse, getCorsHeaders, CORS_HEADERS, checkAuth, validateSheetId, sanitizeValues } from '../../_shared.js';
 
-export async function onRequestOptions() {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+export async function onRequestOptions({ request, env }) {
+    return new Response(null, { status: 204, headers: getCorsHeaders(request, env) });
 }
 
 export async function onRequestPost({ request, env }) {
-    if (!checkAuth(request, env)) {
-        return errorResponse('Unauthorized', 401);
+    const cors = getCorsHeaders(request, env);
+
+    if (!await checkAuth(request, env)) {
+        return errorResponse('Unauthorized', 401, cors);
     }
 
     try {
@@ -20,12 +22,18 @@ export async function onRequestPost({ request, env }) {
         const { sheetId, range, values } = body;
 
         if (!sheetId || !range || !Array.isArray(values)) {
-            return errorResponse('sheetId, range, and values (array) are required');
+            return errorResponse('sheetId, range, and values (array) are required', 400, cors);
+        }
+
+        if (!validateSheetId(sheetId, env)) {
+            return errorResponse('Forbidden: sheetId is not allowed', 403, cors);
         }
 
         const token = await getGoogleAccessToken(env);
 
-        const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`;
+        // Use RAW to prevent formula injection from user-controlled values.
+        // Additionally sanitise values that start with formula-trigger characters.
+        const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW`;
 
         const res = await fetch(apiUrl, {
             method: 'POST',
@@ -33,16 +41,17 @@ export async function onRequestPost({ request, env }) {
                 Authorization: `Bearer ${token}`,
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ values }),
+            body: JSON.stringify({ values: sanitizeValues(values) }),
         });
 
         if (!res.ok) {
-            const text = await res.text();
-            return errorResponse(`Sheets API error: ${text}`, res.status);
+            console.error('Sheets API error in append:', res.status);
+            return errorResponse('Failed to append data to spreadsheet', res.status, cors);
         }
 
-        return jsonResponse(await res.json());
+        return jsonResponse(await res.json(), 200, cors);
     } catch (err) {
-        return errorResponse(err.message, 500);
+        console.error('Unexpected error in append:', err);
+        return errorResponse('Internal server error', 500, cors);
     }
 }

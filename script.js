@@ -1,13 +1,24 @@
-// Configuration - UPDATE THESE VALUES
-const CONFIG = {
-    SHEET_ID: '14oG_k6YCeXylEg3OGbmlGxzlh1NnpKsOfxIQQdebYOQ',
-    // Get this from: https://docs.google.com/spreadsheets/d/SHEET_ID/edit
-    // Copy the SHEET_ID part from the URL
-    APP_AUTH: '',
-    // Optional shared secret sent as X-App-Auth header for write operations.
-    // Must match the APP_AUTH_SECRET environment variable set in Cloudflare Pages.
-    // Leave empty if APP_AUTH_SECRET is not configured on the server.
-};
+// Session token storage key
+const SESSION_TOKEN_KEY = 'app_session_token';
+
+/**
+ * Returns the stored session token (from sessionStorage), or null if not set.
+ * sessionStorage is cleared automatically when the browser tab is closed.
+ */
+function getSessionToken() {
+    return sessionStorage.getItem(SESSION_TOKEN_KEY);
+}
+
+/**
+ * Returns headers for authenticated API requests.
+ * Includes X-App-Auth with the session token when available.
+ */
+function getAuthHeaders(extra = {}) {
+    const token = getSessionToken();
+    const headers = { 'Content-Type': 'application/json', ...extra };
+    if (token) headers['X-App-Auth'] = token;
+    return headers;
+}
 
 // How many pixels to scroll when a scroll-tab button is clicked
 const TAB_SCROLL_STEP = 150;
@@ -30,7 +41,6 @@ const scrollTabsRight = document.getElementById('scrollTabsRight');
 const settingsBtn = document.getElementById('settingsBtn');
 
 // State
-let usersData = [];
 let currentTasksSheetUrl = '';
 
 // Initialize
@@ -45,42 +55,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     sheetTabs.addEventListener('scroll', updateScrollButtons);
     settingsBtn.addEventListener('click', handleSettingsClick);
-    loadUsersData();
 });
-
-// Load users data from Google Sheets
-async function loadUsersData() {
-    try {
-        const range = 'Sheet1!B:D'; // Columns B, C, D (Username, Password, Tasks Sheet URL) [CHANGED]
-        const url = `/api/sheets/values?sheetId=${encodeURIComponent(CONFIG.SHEET_ID)}&range=${encodeURIComponent(range)}`;
-
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-            throw new Error('Failed to load user data. Check server configuration and sheet sharing.');
-        }
-
-        const data = await response.json();
-        const rows = data.values || [];
-
-        // Skip header row and parse data
-        usersData = rows.slice(1).map(row => ({
-            username: row[0] || '',
-            password: row[1] || '',
-            tasksSheetUrl: row[2] || '' // [CHANGED: was 'tasks']
-        }));
-        console.log('Loaded users:', usersData);
-        console.log('User data loaded successfully');
-    } catch (error) {
-        console.error('Error loading data:', error);
-        showError('Failed to connect to Google Sheets. Please check your configuration.');
-    }
-}
 
 // [NEW FUNCTION] Load all sheet names from a tasks workbook
 async function loadSheetMetadata(tasksSheetId) {
     const url = `/api/sheets/metadata?sheetId=${encodeURIComponent(tasksSheetId)}`;
-    const response = await fetch(url);
+    const response = await fetch(url, { headers: getAuthHeaders({}) });
     if (!response.ok) {
         throw new Error('Failed to load sheet metadata');
     }
@@ -109,7 +89,7 @@ async function loadTasksFromSheet(tasksSheetUrl, sheetName = 'Sheet1') {
         const range = `${quotedSheetName}!A:B`; // Columns A (Tasks) and B (Notes)
         const url = `/api/sheets/values?sheetId=${encodeURIComponent(tasksSheetId)}&range=${encodeURIComponent(range)}`;
 
-        const response = await fetch(url);
+        const response = await fetch(url, { headers: getAuthHeaders({}) });
         
         if (!response.ok) {
             console.error('Failed to load tasks from sheet');
@@ -214,7 +194,7 @@ async function handleSettingsClick() {
 }
 
 // Handle login
-async function handleLogin(e) { // [CHANGED: added 'async']
+async function handleLogin(e) {
     e.preventDefault();
     
     const username = usernameInput.value.trim();
@@ -230,26 +210,31 @@ async function handleLogin(e) { // [CHANGED: added 'async']
     showLoading(true);
     clearError();
 
-    // Simulate API delay
-    setTimeout(async () => { // [CHANGED: added 'async']
-        const user = usersData.find(u => u.username === username);
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+        });
 
-        if (!user) {
-            showError('Username not found');
+        const data = await response.json();
+
+        if (!response.ok) {
+            showError(data.error || 'Login failed. Please check your credentials.');
             showLoading(false);
             return;
         }
 
-        if (user.password !== password) {
-            showError('Incorrect password');
-            showLoading(false);
-            return;
-        }
+        // Store the session token (cleared on tab close)
+        sessionStorage.setItem(SESSION_TOKEN_KEY, data.token);
 
-        // [NEW] Load tasks from the separate sheet with multi-tab support
-        await loginSuccess(username, user.tasksSheetUrl); // [CHANGED: use createSheetTabs]
+        // Proceed to the tasks page
+        await loginSuccess(username, data.tasksSheetUrl);
+    } catch {
+        showError('Unable to connect to the server. Please try again.');
+    } finally {
         showLoading(false);
-    }, 500);
+    }
 }
 
 // Login successful
@@ -309,6 +294,7 @@ function displayTasks(taskRows) {
 
 // Handle logout
 function handleLogout() {
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
     tasksPage.classList.remove('active');
     loginPage.classList.add('active');
     usernameInput.focus();

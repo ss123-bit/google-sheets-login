@@ -7,17 +7,19 @@
 //                 e.g. [categoryName, categoryKey]
 // Creates a new sheet tab (duplicate names are rejected with 409).
 // Optionally appends a row to the 'Settings' tab.
-// Requires X-App-Auth header matching APP_AUTH_SECRET env var (when set).
+// Requires X-App-Auth header containing a valid session token.
 
-import { getGoogleAccessToken, jsonResponse, errorResponse, CORS_HEADERS, checkAuth } from '../../_shared.js';
+import { getGoogleAccessToken, jsonResponse, errorResponse, getCorsHeaders, CORS_HEADERS, checkAuth, validateSheetId, sanitizeValues } from '../../_shared.js';
 
-export async function onRequestOptions() {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+export async function onRequestOptions({ request, env }) {
+    return new Response(null, { status: 204, headers: getCorsHeaders(request, env) });
 }
 
 export async function onRequestPost({ request, env }) {
-    if (!checkAuth(request, env)) {
-        return errorResponse('Unauthorized', 401);
+    const cors = getCorsHeaders(request, env);
+
+    if (!await checkAuth(request, env)) {
+        return errorResponse('Unauthorized', 401, cors);
     }
 
     try {
@@ -25,7 +27,11 @@ export async function onRequestPost({ request, env }) {
         const { sheetId, title, settingsRow } = body;
 
         if (!sheetId || !title) {
-            return errorResponse('sheetId and title are required');
+            return errorResponse('sheetId and title are required', 400, cors);
+        }
+
+        if (!validateSheetId(sheetId, env)) {
+            return errorResponse('Forbidden: sheetId is not allowed', 403, cors);
         }
 
         const token = await getGoogleAccessToken(env);
@@ -37,15 +43,15 @@ export async function onRequestPost({ request, env }) {
         );
 
         if (!metaRes.ok) {
-            const text = await metaRes.text();
-            return errorResponse(`Failed to get spreadsheet metadata: ${text}`, metaRes.status);
+            console.error('Sheets API error fetching metadata in create-sheet:', metaRes.status);
+            return errorResponse('Failed to read spreadsheet metadata', metaRes.status, cors);
         }
 
         const metaData = await metaRes.json();
         const sheets = metaData.sheets || [];
 
         if (sheets.some((s) => s.properties.title === title)) {
-            return errorResponse(`A sheet named "${title}" already exists.`, 409);
+            return errorResponse(`A sheet named "${title}" already exists.`, 409, cors);
         }
 
         // Create the new sheet tab.
@@ -70,21 +76,22 @@ export async function onRequestPost({ request, env }) {
         );
 
         if (!batchRes.ok) {
-            const text = await batchRes.text();
-            return errorResponse(`Failed to create sheet: ${text}`, batchRes.status);
+            console.error('Sheets API error creating sheet:', batchRes.status);
+            return errorResponse('Failed to create sheet', batchRes.status, cors);
         }
 
         // Optionally append a row to the Settings sheet.
+        // Use RAW valueInputOption to prevent formula injection.
         if (Array.isArray(settingsRow) && settingsRow.length > 0) {
             const appendRes = await fetch(
-                `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/Settings:append?valueInputOption=USER_ENTERED`,
+                `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/Settings:append?valueInputOption=RAW`,
                 {
                     method: 'POST',
                     headers: {
                         Authorization: `Bearer ${token}`,
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ values: [settingsRow] }),
+                    body: JSON.stringify({ values: sanitizeValues([settingsRow]) }),
                 },
             );
 
@@ -94,12 +101,13 @@ export async function onRequestPost({ request, env }) {
                 return jsonResponse({
                     success: true,
                     warning: 'Sheet created but failed to update the Settings tab.',
-                });
+                }, 200, cors);
             }
         }
 
-        return jsonResponse({ success: true });
+        return jsonResponse({ success: true }, 200, cors);
     } catch (err) {
-        return errorResponse(err.message, 500);
+        console.error('Unexpected error in create-sheet:', err);
+        return errorResponse('Internal server error', 500, cors);
     }
 }

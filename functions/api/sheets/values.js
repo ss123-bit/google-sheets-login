@@ -1,21 +1,32 @@
 // functions/api/sheets/values.js
 // GET /api/sheets/values?sheetId=<id>&range=<A1notation>
 // Reads cell values from a Google Sheets spreadsheet using the service account.
+// Requires X-App-Auth header containing a valid session token.
 
-import { getGoogleAccessToken, jsonResponse, errorResponse, CORS_HEADERS } from '../../_shared.js';
+import { getGoogleAccessToken, jsonResponse, errorResponse, getCorsHeaders, CORS_HEADERS, checkAuth, validateSheetId } from '../../_shared.js';
 
-export async function onRequestOptions() {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+export async function onRequestOptions({ request, env }) {
+    return new Response(null, { status: 204, headers: getCorsHeaders(request, env) });
 }
 
 export async function onRequestGet({ request, env }) {
+    const cors = getCorsHeaders(request, env);
+
+    if (!await checkAuth(request, env)) {
+        return errorResponse('Unauthorized', 401, cors);
+    }
+
     try {
         const url = new URL(request.url);
         const sheetId = url.searchParams.get('sheetId');
         const range = url.searchParams.get('range');
 
         if (!sheetId || !range) {
-            return errorResponse('sheetId and range query parameters are required');
+            return errorResponse('sheetId and range query parameters are required', 400, cors);
+        }
+
+        if (!validateSheetId(sheetId, env)) {
+            return errorResponse('Forbidden: sheetId is not allowed', 403, cors);
         }
 
         const token = await getGoogleAccessToken(env);
@@ -27,12 +38,13 @@ export async function onRequestGet({ request, env }) {
         });
 
         if (!res.ok) {
-            const text = await res.text();
-            return errorResponse(`Sheets API error: ${text}`, res.status);
+            console.error('Sheets API error in values:', res.status);
+            return errorResponse('Failed to read spreadsheet data', res.status, cors);
         }
 
-        return jsonResponse(await res.json());
+        return jsonResponse(await res.json(), 200, cors);
     } catch (err) {
-        return errorResponse(err.message, 500);
+        console.error('Unexpected error in values:', err);
+        return errorResponse('Internal server error', 500, cors);
     }
 }
