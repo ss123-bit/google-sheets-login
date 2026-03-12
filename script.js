@@ -99,8 +99,8 @@ async function loadTasksFromSheet(tasksSheetUrl, sheetName = 'Sheet1') {
         const data = await response.json();
         const rows = data.values || [];
 
-        // Skip header row, filter rows where column A (task) is non-empty, return task+note objects
-        return rows.slice(1)
+        // Filter rows where column A (task) is non-empty, return task+note objects
+        return rows
             .filter(row => (row[0] || '').trim().length > 0)
             .map(row => ({ task: row[0] || '', note: row[1] || '' }));
     } catch (error) {
