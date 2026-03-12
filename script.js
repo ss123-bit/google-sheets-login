@@ -42,6 +42,7 @@ const settingsBtn = document.getElementById('settingsBtn');
 
 // State
 let currentTasksSheetUrl = '';
+let currentSheetName = '';
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -99,10 +100,10 @@ async function loadTasksFromSheet(tasksSheetUrl, sheetName = 'Sheet1') {
         const data = await response.json();
         const rows = data.values || [];
 
-        // Filter rows where column A (task) is non-empty, return task+note objects
+        // Filter rows where column A (task) is non-empty, return task+note objects with original row index
         return rows
-            .filter(row => (row[0] || '').trim().length > 0)
-            .map(row => ({ task: row[0] || '', note: row[1] || '' }));
+            .map((row, index) => ({ task: row[0] || '', note: row[1] || '', rowIndex: index }))
+            .filter(item => item.task.trim().length > 0);
     } catch (error) {
         console.error('Error loading tasks:', error);
         return [];
@@ -127,6 +128,7 @@ async function createSheetTabs(tasksSheetUrl) {
     const sheetIdMatch = tasksSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
     if (!sheetIdMatch) {
         const tasks = await loadTasksFromSheet(tasksSheetUrl);
+        currentSheetName = 'Sheet1';
         displayTasks(tasks);
         return;
     }
@@ -166,6 +168,7 @@ async function createSheetTabs(tasksSheetUrl) {
 
     // Load tasks for the first sheet
     const firstTasks = await loadTasksFromSheet(tasksSheetUrl, filteredNames[0]);
+    currentSheetName = filteredNames[0];
     displayTasks(firstTasks);
     updateScrollButtons();
 }
@@ -178,6 +181,7 @@ async function switchToTab(tabElement, tasksSheetUrl, sheetName) {
 
     // Load tasks for the selected sheet
     const tasks = await loadTasksFromSheet(tasksSheetUrl, sheetName);
+    currentSheetName = sheetName;
     displayTasks(tasks);
 }
 
@@ -190,6 +194,7 @@ async function handleSettingsClick() {
     sheetTabs.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
 
     const tasks = await loadTasksFromSheet(currentTasksSheetUrl, 'Settings');
+    currentSheetName = 'Settings';
     displayTasks(tasks);
 }
 
@@ -266,7 +271,7 @@ function displayTasks(taskRows) {
 
     noTasks.style.display = 'none';
 
-    taskRows.forEach(({ task, note }, index) => {
+    taskRows.forEach(({ task, note, rowIndex }, index) => {
         const taskItem = document.createElement('div');
         taskItem.className = 'task-item';
         taskItem.style.animation = `slideIn 0.3s ease-out ${index * 0.1}s both`;
@@ -287,9 +292,46 @@ function displayTasks(taskRows) {
             taskRow.appendChild(noteBox);
         }
 
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn-delete-task';
+        deleteBtn.innerHTML = '&#10005;';
+        deleteBtn.title = 'Delete this task';
+        deleteBtn.addEventListener('click', () => deleteTask(rowIndex));
+        taskRow.appendChild(deleteBtn);
+
         taskItem.appendChild(taskRow);
         tasksList.appendChild(taskItem);
     });
+}
+
+// Delete a task row from the current sheet
+async function deleteTask(rowIndex) {
+    if (!confirm('Are you sure you want to delete this task and its notes?')) return;
+
+    const sheetIdMatch = currentTasksSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (!sheetIdMatch) return;
+    const sheetId = sheetIdMatch[1];
+
+    try {
+        const response = await fetch('/api/sheets/delete-row', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ sheetId, sheetName: currentSheetName, rowIndex }),
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            alert('Failed to delete task: ' + (data.error || 'Unknown error'));
+            return;
+        }
+
+        // Reload tasks for the current sheet without prompting a new login
+        const tasks = await loadTasksFromSheet(currentTasksSheetUrl, currentSheetName);
+        displayTasks(tasks);
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        alert('Failed to delete task. Please try again.');
+    }
 }
 
 // Handle logout
