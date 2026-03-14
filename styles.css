@@ -375,6 +375,25 @@ body {
     background: rgba(239, 68, 68, 0.1);
 }
 
+.btn-edit-task {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-light);
+    font-size: 16px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+    line-height: 1;
+    align-self: center;
+}
+
+.btn-edit-task:hover {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary-color);
+}
+
 .no-tasks {
     text-align: center;
     padding: 40px 20px;

@@ -90,6 +90,30 @@
         </div>
     </div>
 
+    <!-- Edit Task Modal -->
+    <div id="editTaskModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h2>Edit Task</h2>
+            <div class="form-group">
+                <label for="editTaskSheet">Located in category:</label>
+                <select id="editTaskSheet" class="modal-select"></select>
+            </div>
+            <div class="form-group">
+                <label for="editTaskText">Task</label>
+                <input type="text" id="editTaskText" placeholder="Enter task">
+            </div>
+            <div class="form-group">
+                <label for="editTaskNotes">Notes</label>
+                <input type="text" id="editTaskNotes" placeholder="Enter notes (optional)">
+            </div>
+            <div id="editTaskError" class="modal-error"></div>
+            <div class="modal-actions">
+                <button id="editTaskCancelBtn" class="btn btn-secondary">Cancel</button>
+                <button id="editTaskOkBtn" class="btn btn-primary-small">OK</button>
+            </div>
+        </div>
+    </div>
+
     <!-- New Task Modal -->
     <div id="newTaskModal" class="modal-overlay hidden">
         <div class="modal-box">
