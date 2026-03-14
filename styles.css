@@ -528,6 +528,25 @@ body {
     box-shadow: none;
 }
 
+.btn-delete-confirm {
+    background: var(--error-color);
+    color: var(--white);
+    padding: 10px 24px;
+}
+
+.btn-delete-confirm:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.confirm-delete-msg {
+    color: var(--text-dark);
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     .login-box {

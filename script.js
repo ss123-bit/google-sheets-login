@@ -360,9 +360,37 @@ async function openEditTaskModal(task, note, rowIndex) {
     editTaskText.focus();
 }
 
+// Show a custom confirmation dialog for delete and return a Promise<boolean>
+function showConfirmDelete() {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmDeleteModal');
+        const okBtn = document.getElementById('confirmDeleteOkBtn');
+        const cancelBtn = document.getElementById('confirmDeleteCancelBtn');
+
+        function cleanup(result) {
+            modal.classList.add('hidden');
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            modal.removeEventListener('click', onOverlay);
+            resolve(result);
+        }
+
+        function onOk() { cleanup(true); }
+        function onCancel() { cleanup(false); }
+        function onOverlay(e) { if (e.target === modal) cleanup(false); }
+
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+        modal.addEventListener('click', onOverlay);
+
+        modal.classList.remove('hidden');
+    });
+}
+
 // Delete a task row from the current sheet
 async function deleteTask(rowIndex) {
-    if (!confirm('Are you sure you want to delete this task and its notes?')) return;
+    const confirmed = await showConfirmDelete();
+    if (!confirmed) return;
 
     const sheetIdMatch = currentTasksSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
     if (!sheetIdMatch) return;
