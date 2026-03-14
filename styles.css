@@ -357,6 +357,24 @@ body {
     word-wrap: break-word;
 }
 
+.btn-delete-task {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--error-color);
+    font-size: 16px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+    line-height: 1;
+    align-self: center;
+}
+
+.btn-delete-task:hover {
+    background: rgba(239, 68, 68, 0.1);
+}
+
 .no-tasks {
     text-align: center;
     padding: 40px 20px;
