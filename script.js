@@ -39,6 +39,7 @@ const logoutBtn = document.getElementById('logoutBtn');
 const scrollTabsLeft = document.getElementById('scrollTabsLeft');
 const scrollTabsRight = document.getElementById('scrollTabsRight');
 const settingsBtn = document.getElementById('settingsBtn');
+const deleteCategoryBtn = document.getElementById('deleteCategoryBtn');
 
 // State
 let currentTasksSheetUrl = '';
@@ -56,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     sheetTabs.addEventListener('scroll', updateScrollButtons);
     settingsBtn.addEventListener('click', handleSettingsClick);
+    deleteCategoryBtn.addEventListener('click', handleDeleteCategoryClick);
 });
 
 // [NEW FUNCTION] Load all sheet names from a tasks workbook
@@ -196,6 +198,46 @@ async function handleSettingsClick() {
     const tasks = await loadTasksFromSheet(currentTasksSheetUrl, 'Settings');
     currentSheetName = 'Settings';
     displayTasks(tasks);
+}
+
+// [NEW FUNCTION] Delete the currently open category and all its tasks
+async function handleDeleteCategoryClick() {
+    if (!currentTasksSheetUrl || !currentSheetName || currentSheetName === 'Settings') {
+        return;
+    }
+
+    const confirmed = await showConfirmDelete(
+        `Are you sure you want to delete the category "${currentSheetName}" and all its tasks? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    const sheetIdMatch = currentTasksSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (!sheetIdMatch) return;
+    const sheetId = sheetIdMatch[1];
+
+    try {
+        const response = await fetch('/api/sheets/delete-sheet', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ sheetId, sheetName: currentSheetName }),
+        });
+
+        if (!response.ok) {
+            let errMsg = `Server responded with status ${response.status}.`;
+            try {
+                const data = await response.json();
+                errMsg = data.error || errMsg;
+            } catch (_) { /* ignore */ }
+            alert('Failed to delete category: ' + errMsg);
+            return;
+        }
+
+        // Reload the tabs, showing the first available category
+        await createSheetTabs(currentTasksSheetUrl);
+    } catch (err) {
+        console.error('Error deleting category:', err);
+        alert('Failed to delete category. Please try again.');
+    }
 }
 
 // Handle login
@@ -361,14 +403,20 @@ async function openEditTaskModal(task, note, rowIndex) {
 }
 
 // Show a custom confirmation dialog for delete and return a Promise<boolean>
-function showConfirmDelete() {
+// An optional message overrides the default text shown in the dialog.
+function showConfirmDelete(message) {
     return new Promise((resolve) => {
         const modal = document.getElementById('confirmDeleteModal');
         const okBtn = document.getElementById('confirmDeleteOkBtn');
         const cancelBtn = document.getElementById('confirmDeleteCancelBtn');
+        const msgEl = document.getElementById('confirmDeleteMessage');
+
+        const originalMessage = msgEl ? msgEl.textContent : '';
+        if (message && msgEl) msgEl.textContent = message;
 
         function cleanup(result) {
             modal.classList.add('hidden');
+            if (msgEl) msgEl.textContent = originalMessage;
             okBtn.removeEventListener('click', onOk);
             cancelBtn.removeEventListener('click', onCancel);
             modal.removeEventListener('click', onOverlay);
