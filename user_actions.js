@@ -417,11 +417,11 @@ async function handleEditTaskOk() {
 
         editTaskModal.classList.add('hidden');
 
-        // Reload tasks: switch to the target sheet tab
+        // Reload tasks: switch back to the original sheet tab
         const tabs = document.querySelectorAll('.sheet-tab');
         for (const tab of tabs) {
-            if (tab.textContent === selectedSheet) {
-                await switchToTab(tab, currentTasksSheetUrl, selectedSheet);
+            if (tab.textContent === originalSheet) {
+                await switchToTab(tab, currentTasksSheetUrl, originalSheet);
                 break;
             }
         }
