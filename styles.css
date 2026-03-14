@@ -422,15 +422,15 @@ body {
 }
 
 .btn-delete-category {
-    background: rgba(220, 53, 69, 0.3);
-    color: var(--white);
-    border: 2px solid rgba(220, 53, 69, 0.7);
-    backdrop-filter: blur(4px);
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--white);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(4px);
 }
 
 .btn-delete-category:hover {
-    background: rgba(220, 53, 69, 0.5);
-    border-color: #dc3545;
+  background: rgba(255, 255, 255, 0.25);
+  border-color: var(--white);
 }
 
 .btn-new-category {
