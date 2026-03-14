@@ -34,6 +34,14 @@ const taskTextInput = document.getElementById('taskText');
 const taskNotesInput = document.getElementById('taskNotes');
 const newTaskError = document.getElementById('newTaskError');
 
+const editTaskModal = document.getElementById('editTaskModal');
+const editTaskOkBtn = document.getElementById('editTaskOkBtn');
+const editTaskCancelBtn = document.getElementById('editTaskCancelBtn');
+const editTaskSheet = document.getElementById('editTaskSheet');
+const editTaskText = document.getElementById('editTaskText');
+const editTaskNotes = document.getElementById('editTaskNotes');
+const editTaskError = document.getElementById('editTaskError');
+
 document.addEventListener('DOMContentLoaded', () => {
     newCategoryBtn.addEventListener('click', () => {
         categoryNameInput.value = '';
@@ -103,6 +111,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     taskNotesInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') handleNewTaskOk();
+    });
+
+    editTaskCancelBtn.addEventListener('click', () => {
+        editTaskModal.classList.add('hidden');
+    });
+
+    editTaskModal.addEventListener('click', (e) => {
+        if (e.target === editTaskModal) {
+            editTaskModal.classList.add('hidden');
+        }
+    });
+
+    editTaskOkBtn.addEventListener('click', handleEditTaskOk);
+
+    editTaskText.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleEditTaskOk();
+    });
+
+    editTaskNotes.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleEditTaskOk();
     });
 });
 
@@ -264,6 +292,143 @@ async function handleNewTaskOk() {
         console.error('Error adding task:', err);
         newTaskError.textContent = err.message || 'Failed to add task.';
         newTaskOkBtn.disabled = false;
+    }
+}
+
+async function handleEditTaskOk() {
+    const selectedSheet = editTaskSheet.value;
+    const taskText = editTaskText.value.trim();
+    const taskNotes = editTaskNotes.value.trim();
+    const originalSheet = editTaskModal.dataset.originalSheet;
+    const rowIndex = parseInt(editTaskModal.dataset.rowIndex, 10);
+
+    if (!taskText) {
+        editTaskError.textContent = 'Please enter a task.';
+        editTaskText.focus();
+        return;
+    }
+
+    if (!currentTasksSheetUrl) {
+        editTaskError.textContent = 'No tasks sheet loaded. Please log in first.';
+        return;
+    }
+
+    const sheetIdMatch = currentTasksSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (!sheetIdMatch) {
+        editTaskError.textContent = 'Invalid tasks sheet URL.';
+        return;
+    }
+
+    const spreadsheetId = sheetIdMatch[1];
+    editTaskOkBtn.disabled = true;
+    editTaskError.textContent = '';
+
+    try {
+        const headers = { 'Content-Type': 'application/json' };
+        headers['X-App-Auth'] = getSessionToken() || '';
+
+        if (selectedSheet === originalSheet) {
+            // Same category: update the row in place (rowIndex is 0-based; Sheets API is 1-based)
+            const escapedSheet = originalSheet.replace(/'/g, "''");
+            const quotedSheet = /[^A-Za-z0-9]/.test(originalSheet) ? `'${escapedSheet}'` : escapedSheet;
+            const rowNumber = rowIndex + 1;
+            const range = `${quotedSheet}!A${rowNumber}:B${rowNumber}`;
+
+            let response;
+            try {
+                response = await fetch('/api/sheets/update', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        sheetId: spreadsheetId,
+                        range,
+                        values: [[taskText, taskNotes]],
+                    }),
+                });
+            } catch (fetchErr) {
+                console.warn('Network error updating task:', fetchErr);
+                throw new Error('Failed to connect to the server. Please check your connection.');
+            }
+
+            if (!response.ok) {
+                let errMsg = `Server responded with status ${response.status}.`;
+                try {
+                    const result = await response.json();
+                    errMsg = result.error || errMsg;
+                } catch (_) { /* ignore */ }
+                throw new Error(errMsg);
+            }
+        } else {
+            // Different category: append to new sheet, then delete from old sheet
+            const escapedNew = selectedSheet.replace(/'/g, "''");
+            const quotedNew = /[^A-Za-z0-9]/.test(selectedSheet) ? `'${escapedNew}'` : escapedNew;
+            const newRange = `${quotedNew}!A:B`;
+
+            let appendResponse;
+            try {
+                appendResponse = await fetch('/api/sheets/append', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        sheetId: spreadsheetId,
+                        range: newRange,
+                        values: [[taskText, taskNotes]],
+                    }),
+                });
+            } catch (fetchErr) {
+                console.warn('Network error appending task to new category:', fetchErr);
+                throw new Error('Failed to add task to new category. Please check your connection.');
+            }
+
+            if (!appendResponse.ok) {
+                let errMsg = `Server responded with status ${appendResponse.status}.`;
+                try {
+                    const result = await appendResponse.json();
+                    errMsg = result.error || errMsg;
+                } catch (_) { /* ignore */ }
+                throw new Error('Failed to add task to new category: ' + errMsg);
+            }
+
+            let deleteResponse;
+            try {
+                deleteResponse = await fetch('/api/sheets/delete-row', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        sheetId: spreadsheetId,
+                        sheetName: originalSheet,
+                        rowIndex,
+                    }),
+                });
+            } catch (fetchErr) {
+                console.warn('Network error deleting task from original category:', fetchErr);
+                throw new Error('Task was added to the new category but could not be removed from the original category. You may see the task duplicated.');
+            }
+
+            if (!deleteResponse.ok) {
+                let errMsg = `Server responded with status ${deleteResponse.status}.`;
+                try {
+                    const result = await deleteResponse.json();
+                    errMsg = result.error || errMsg;
+                } catch (_) { /* ignore */ }
+                throw new Error('Task was added to the new category but could not be removed from the original category. You may see the task duplicated. (' + errMsg + ')');
+            }
+        }
+
+        editTaskModal.classList.add('hidden');
+
+        // Reload tasks: switch to the target sheet tab
+        const tabs = document.querySelectorAll('.sheet-tab');
+        for (const tab of tabs) {
+            if (tab.textContent === selectedSheet) {
+                await switchToTab(tab, currentTasksSheetUrl, selectedSheet);
+                break;
+            }
+        }
+    } catch (err) {
+        console.error('Error editing task:', err);
+        editTaskError.textContent = err.message || 'Failed to edit task.';
+        editTaskOkBtn.disabled = false;
     }
 }
 

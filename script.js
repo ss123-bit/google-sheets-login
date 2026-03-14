@@ -292,6 +292,13 @@ function displayTasks(taskRows) {
             taskRow.appendChild(noteBox);
         }
 
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn-edit-task';
+        editBtn.innerHTML = '&#9998;';
+        editBtn.title = 'Edit task';
+        editBtn.addEventListener('click', () => openEditTaskModal(task, note, rowIndex));
+        taskRow.appendChild(editBtn);
+
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'btn-delete-task';
         deleteBtn.innerHTML = '&#10005;';
@@ -302,6 +309,55 @@ function displayTasks(taskRows) {
         taskItem.appendChild(taskRow);
         tasksList.appendChild(taskItem);
     });
+}
+
+// Open the edit task modal pre-populated with the task's current values
+async function openEditTaskModal(task, note, rowIndex) {
+    if (!currentTasksSheetUrl) return;
+
+    const editTaskModal = document.getElementById('editTaskModal');
+    const editTaskSheet = document.getElementById('editTaskSheet');
+    const editTaskText = document.getElementById('editTaskText');
+    const editTaskNotes = document.getElementById('editTaskNotes');
+    const editTaskError = document.getElementById('editTaskError');
+    const editTaskOkBtn = document.getElementById('editTaskOkBtn');
+
+    // Populate category dropdown
+    editTaskSheet.innerHTML = '';
+    try {
+        const sheetIdMatch = currentTasksSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+        if (sheetIdMatch) {
+            const sheetNames = await loadSheetMetadata(sheetIdMatch[1]);
+            const filtered = sheetNames.filter(name => name !== 'Settings');
+            filtered.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                if (name === currentSheetName) opt.selected = true;
+                editTaskSheet.appendChild(opt);
+            });
+        }
+    } catch (err) {
+        // Leave dropdown with just the current sheet as fallback
+        console.warn('Failed to load categories for edit modal:', err);
+        const opt = document.createElement('option');
+        opt.value = currentSheetName;
+        opt.textContent = currentSheetName;
+        opt.selected = true;
+        editTaskSheet.appendChild(opt);
+    }
+
+    editTaskText.value = task;
+    editTaskNotes.value = note;
+    editTaskError.textContent = '';
+    editTaskOkBtn.disabled = false;
+
+    // Store the original values on the modal for use in the OK handler
+    editTaskModal.dataset.originalSheet = currentSheetName;
+    editTaskModal.dataset.rowIndex = rowIndex;
+
+    editTaskModal.classList.remove('hidden');
+    editTaskText.focus();
 }
 
 // Delete a task row from the current sheet
