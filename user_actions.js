@@ -8,6 +8,10 @@
 //   POST { sheetId, title, settingsRow }
 //   Creates a new sheet tab and appends a row to the Settings sheet.
 //
+// The /api/sheets/delete-sheet endpoint:
+//   POST { sheetId, sheetName }
+//   Deletes a sheet tab and removes its row from the Settings sheet.
+//
 // The /api/sheets/append endpoint:
 //   POST { sheetId, range, values }
 //   Appends rows to a given range in a Google Sheet.
