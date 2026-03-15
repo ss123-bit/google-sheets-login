@@ -334,6 +334,22 @@ function displayTasks(taskRows) {
             taskRow.appendChild(noteBox);
         }
 
+        const moveUpBtn = document.createElement('button');
+        moveUpBtn.className = 'btn-move-task-up';
+        moveUpBtn.innerHTML = '&#8679;';
+        moveUpBtn.title = 'Move task up';
+        moveUpBtn.disabled = index === 0;
+        moveUpBtn.addEventListener('click', () => moveTask(rowIndex, 'up'));
+        taskRow.appendChild(moveUpBtn);
+
+        const moveDownBtn = document.createElement('button');
+        moveDownBtn.className = 'btn-move-task-down';
+        moveDownBtn.innerHTML = '&#8681;';
+        moveDownBtn.title = 'Move task down';
+        moveDownBtn.disabled = index === taskRows.length - 1;
+        moveDownBtn.addEventListener('click', () => moveTask(rowIndex, 'down'));
+        taskRow.appendChild(moveDownBtn);
+
         const editBtn = document.createElement('button');
         editBtn.className = 'btn-edit-task';
         editBtn.innerHTML = '&#9998;';
@@ -463,6 +479,34 @@ async function deleteTask(rowIndex) {
     } catch (error) {
         console.error('Error deleting task:', error);
         alert('Failed to delete task. Please try again.');
+    }
+}
+
+// Move a task row one position up or down within the current sheet
+async function moveTask(rowIndex, direction) {
+    const sheetIdMatch = currentTasksSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (!sheetIdMatch) return;
+    const sheetId = sheetIdMatch[1];
+
+    try {
+        const response = await fetch('/api/sheets/move-row', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ sheetId, sheetName: currentSheetName, rowIndex, direction }),
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            alert('Failed to move task: ' + (data.error || 'Unknown error'));
+            return;
+        }
+
+        // Reload tasks for the current sheet
+        const tasks = await loadTasksFromSheet(currentTasksSheetUrl, currentSheetName);
+        displayTasks(tasks);
+    } catch (error) {
+        console.error('Error moving task:', error);
+        alert('Failed to move task. Please try again.');
     }
 }
 
