@@ -184,6 +184,115 @@ export function sanitizeValue(value) {
 }
 
 /**
+ * Extracts the username from a previously validated session token.
+ * MUST only be called after checkAuth has returned true for the same request.
+ * Token format: base64url(username):expiry_ms:base64url(hmac)
+ */
+export function getUsernameFromToken(request) {
+    const token = request.headers.get('X-App-Auth');
+    if (!token) return null;
+    const parts = token.split(':');
+    if (parts.length !== 3) return null;
+    const [encodedUser] = parts;
+    try {
+        const pad = (s) =>
+            s.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - (s.length % 4)) % 4);
+        return atob(pad(encodedUser));
+    } catch {
+        return null;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shared PBKDF2 password utilities (used by login and change-password)
+// ---------------------------------------------------------------------------
+
+export function hexToBytes(hex) {
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+    }
+    return bytes;
+}
+
+export function bytesToHex(bytes) {
+    return Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+}
+
+/**
+ * Hashes a password using PBKDF2-SHA-256 with the given salt.
+ * Returns a hex string.
+ */
+export async function pbkdf2Hash(password, saltHex, iterations) {
+    const salt = hexToBytes(saltHex);
+    const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(password),
+        'PBKDF2',
+        false,
+        ['deriveBits'],
+    );
+    const bits = await crypto.subtle.deriveBits(
+        { name: 'PBKDF2', hash: 'SHA-256', salt, iterations },
+        keyMaterial,
+        256,
+    );
+    return bytesToHex(new Uint8Array(bits));
+}
+
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ */
+export async function safeEqual(a, b) {
+    const enc = new TextEncoder();
+    const ka = await crypto.subtle.importKey('raw', enc.encode(a), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const kb = await crypto.subtle.importKey('raw', enc.encode(b), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const dummy = enc.encode('compare');
+    const [sa, sb] = await Promise.all([
+        crypto.subtle.sign('HMAC', ka, dummy),
+        crypto.subtle.sign('HMAC', kb, dummy),
+    ]);
+    return bytesToHex(new Uint8Array(sa)) === bytesToHex(new Uint8Array(sb));
+}
+
+/**
+ * Verifies a password against a stored value.
+ * Supports both PBKDF2 hashed passwords and legacy plaintext passwords.
+ * Returns { ok: boolean, legacy: boolean }.
+ */
+export async function verifyPassword(inputPassword, storedPassword) {
+    if (storedPassword.startsWith('pbkdf2:')) {
+        const parts = storedPassword.split(':');
+        if (parts.length !== 4) return { ok: false, legacy: false };
+        const [, iterStr, saltHex, storedHash] = parts;
+        const iterations = parseInt(iterStr, 10);
+        if (!Number.isFinite(iterations) || iterations < 1) return { ok: false, legacy: false };
+        const computedHash = await pbkdf2Hash(inputPassword, saltHex, iterations);
+        const ok = await safeEqual(computedHash, storedHash);
+        return { ok, legacy: false };
+    }
+    // Legacy plaintext comparison.
+    const ok = await safeEqual(inputPassword, storedPassword);
+    return { ok, legacy: true };
+}
+
+/** Number of PBKDF2 iterations used when generating new password hashes. */
+const PBKDF2_ITERATIONS = 600_000;
+
+/**
+ * Generates a new PBKDF2-SHA-256 hash for the given password.
+ * Returns a string in the format "pbkdf2:<iterations>:<hex-salt>:<hex-hash>".
+ */
+export async function generatePbkdf2Hash(password) {
+    const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+    const saltHex = bytesToHex(saltBytes);
+    const hash = await pbkdf2Hash(password, saltHex, PBKDF2_ITERATIONS);
+    return `pbkdf2:${PBKDF2_ITERATIONS}:${saltHex}:${hash}`;
+}
+
+/**
  * Recursively sanitises all string values inside a 2-D values array.
  */
 export function sanitizeValues(rows) {

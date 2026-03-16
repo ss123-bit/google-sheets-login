@@ -44,6 +44,7 @@ const deleteCategoryBtn = document.getElementById('deleteCategoryBtn');
 // State
 let currentTasksSheetUrl = '';
 let currentSheetName = '';
+let currentUsername = '';
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -58,6 +59,43 @@ document.addEventListener('DOMContentLoaded', () => {
     sheetTabs.addEventListener('scroll', updateScrollButtons);
     settingsBtn.addEventListener('click', handleSettingsClick);
     deleteCategoryBtn.addEventListener('click', handleDeleteCategoryClick);
+
+    // Settings menu modal
+    document.getElementById('settingsCategoriesBtn').addEventListener('click', handleCategoriesClick);
+    document.getElementById('settingsChangePasswordBtn').addEventListener('click', handleChangePasswordClick);
+    document.getElementById('settingsCheckCreditBtn').addEventListener('click', handleCheckCreditClick);
+    document.getElementById('settingsMenuCancelBtn').addEventListener('click', () => {
+        document.getElementById('settingsMenuModal').classList.add('hidden');
+    });
+    document.getElementById('settingsMenuModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('settingsMenuModal')) {
+            document.getElementById('settingsMenuModal').classList.add('hidden');
+        }
+    });
+
+    // Change password modal
+    document.getElementById('changePasswordOkBtn').addEventListener('click', handleChangePasswordOk);
+    document.getElementById('changePasswordCancelBtn').addEventListener('click', () => {
+        document.getElementById('changePasswordModal').classList.add('hidden');
+    });
+    document.getElementById('changePasswordModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('changePasswordModal')) {
+            document.getElementById('changePasswordModal').classList.add('hidden');
+        }
+    });
+    document.getElementById('confirmNewPassword').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleChangePasswordOk();
+    });
+
+    // Credit modal
+    document.getElementById('creditCloseBtn').addEventListener('click', () => {
+        document.getElementById('creditModal').classList.add('hidden');
+    });
+    document.getElementById('creditModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('creditModal')) {
+            document.getElementById('creditModal').classList.add('hidden');
+        }
+    });
 });
 
 // [NEW FUNCTION] Load all sheet names from a tasks workbook
@@ -192,12 +230,112 @@ async function handleSettingsClick() {
     if (!currentTasksSheetUrl) {
         return;
     }
+    // Open the settings menu modal with three options
+    const modal = document.getElementById('settingsMenuModal');
+    modal.classList.remove('hidden');
+}
+
+// Load tasks and notes from the Settings sheet (Categories option)
+async function handleCategoriesClick() {
+    document.getElementById('settingsMenuModal').classList.add('hidden');
+    if (!currentTasksSheetUrl) {
+        return;
+    }
     // Deselect all tabs to indicate we are viewing Settings
     sheetTabs.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
 
     const tasks = await loadTasksFromSheet(currentTasksSheetUrl, 'Settings');
     currentSheetName = 'Settings';
     displayTasks(tasks);
+}
+
+// Open the change-password modal
+function handleChangePasswordClick() {
+    document.getElementById('settingsMenuModal').classList.add('hidden');
+    const modal = document.getElementById('changePasswordModal');
+    document.getElementById('oldPassword').value = '';
+    document.getElementById('newPassword').value = '';
+    document.getElementById('confirmNewPassword').value = '';
+    document.getElementById('changePasswordError').textContent = '';
+    document.getElementById('changePasswordOkBtn').disabled = false;
+    modal.classList.remove('hidden');
+    document.getElementById('oldPassword').focus();
+}
+
+// Submit the change-password form
+async function handleChangePasswordOk() {
+    const oldPassword = document.getElementById('oldPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+    const errorEl = document.getElementById('changePasswordError');
+    const okBtn = document.getElementById('changePasswordOkBtn');
+
+    errorEl.textContent = '';
+
+    if (!oldPassword) {
+        errorEl.textContent = 'Please enter your old password.';
+        document.getElementById('oldPassword').focus();
+        return;
+    }
+    if (!newPassword) {
+        errorEl.textContent = 'Please enter a new password.';
+        document.getElementById('newPassword').focus();
+        return;
+    }
+    if (newPassword !== confirmNewPassword) {
+        errorEl.textContent = 'New passwords do not match.';
+        document.getElementById('confirmNewPassword').focus();
+        return;
+    }
+
+    okBtn.disabled = true;
+    try {
+        const response = await fetch('/api/auth/change-password', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ oldPassword, newPassword }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            errorEl.textContent = data.error || 'Failed to change password.';
+            okBtn.disabled = false;
+            return;
+        }
+
+        document.getElementById('changePasswordModal').classList.add('hidden');
+    } catch {
+        errorEl.textContent = 'Unable to connect to the server. Please try again.';
+        okBtn.disabled = false;
+    }
+}
+
+// Fetch and display the user's available credit
+async function handleCheckCreditClick() {
+    document.getElementById('settingsMenuModal').classList.add('hidden');
+    const modal = document.getElementById('creditModal');
+    const msgEl = document.getElementById('creditMessage');
+    msgEl.textContent = 'Loading...';
+    modal.classList.remove('hidden');
+
+    try {
+        const response = await fetch('/api/auth/credit', {
+            headers: getAuthHeaders(),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            msgEl.textContent = data.error || 'Failed to load credit.';
+            return;
+        }
+
+        const credit = data.credit !== undefined && data.credit !== '' ? data.credit : '0';
+        msgEl.textContent = `Available credit is ${credit} texts`;
+    } catch {
+        msgEl.textContent = 'Unable to connect to the server. Please try again.';
+    }
 }
 
 // [NEW FUNCTION] Delete the currently open category and all its tasks
@@ -288,6 +426,7 @@ async function handleLogin(e) {
 async function loginSuccess(username, tasksSheetUrl) {
     // Update welcome message
     welcomeUsername.textContent = username;
+    currentUsername = username;
 
     // Switch pages first so tabs/tasks are visible when loaded
     loginPage.classList.remove('active');
@@ -513,6 +652,7 @@ async function moveTask(rowIndex, direction) {
 // Handle logout
 function handleLogout() {
     sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    currentUsername = '';
     tasksPage.classList.remove('active');
     loginPage.classList.add('active');
     usernameInput.focus();

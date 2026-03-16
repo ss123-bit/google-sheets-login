@@ -24,6 +24,11 @@ import {
     jsonResponse,
     errorResponse,
     createSessionToken,
+    pbkdf2Hash,
+    hexToBytes,
+    bytesToHex,
+    safeEqual,
+    verifyPassword,
 } from '../../_shared.js';
 
 // ---------------------------------------------------------------------------
@@ -52,82 +57,6 @@ function checkRateLimit(ip) {
 
     entry.count += 1;
     return true;
-}
-
-// ---------------------------------------------------------------------------
-// PBKDF2 password verification
-// ---------------------------------------------------------------------------
-
-/**
- * Hashes a password using PBKDF2-SHA-256 with the given salt.
- * Returns a hex string.
- */
-async function pbkdf2Hash(password, saltHex, iterations) {
-    const salt = hexToBytes(saltHex);
-    const keyMaterial = await crypto.subtle.importKey(
-        'raw',
-        new TextEncoder().encode(password),
-        'PBKDF2',
-        false,
-        ['deriveBits'],
-    );
-    const bits = await crypto.subtle.deriveBits(
-        { name: 'PBKDF2', hash: 'SHA-256', salt, iterations },
-        keyMaterial,
-        256,
-    );
-    return bytesToHex(new Uint8Array(bits));
-}
-
-function hexToBytes(hex) {
-    const bytes = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < bytes.length; i++) {
-        bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-    }
-    return bytes;
-}
-
-function bytesToHex(bytes) {
-    return Array.from(bytes)
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-}
-
-/**
- * Constant-time string comparison to prevent timing attacks.
- */
-async function safeEqual(a, b) {
-    const enc = new TextEncoder();
-    const ka = await crypto.subtle.importKey('raw', enc.encode(a), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-    const kb = await crypto.subtle.importKey('raw', enc.encode(b), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-    const dummy = enc.encode('compare');
-    const [sa, sb] = await Promise.all([
-        crypto.subtle.sign('HMAC', ka, dummy),
-        crypto.subtle.sign('HMAC', kb, dummy),
-    ]);
-    return bytesToHex(new Uint8Array(sa)) === bytesToHex(new Uint8Array(sb));
-}
-
-/**
- * Verifies a password against a stored value.
- * Supports both PBKDF2 hashed passwords and legacy plaintext passwords.
- * Returns { ok: boolean, legacy: boolean }.
- */
-async function verifyPassword(inputPassword, storedPassword) {
-    if (storedPassword.startsWith('pbkdf2:')) {
-        const parts = storedPassword.split(':');
-        if (parts.length !== 4) return { ok: false, legacy: false };
-        const [, iterStr, saltHex, storedHash] = parts;
-        const iterations = parseInt(iterStr, 10);
-        if (!Number.isFinite(iterations) || iterations < 1) return { ok: false, legacy: false };
-        const computedHash = await pbkdf2Hash(inputPassword, saltHex, iterations);
-        const ok = await safeEqual(computedHash, storedHash);
-        return { ok, legacy: false };
-    }
-
-    // Legacy plaintext comparison.
-    const ok = await safeEqual(inputPassword, storedPassword);
-    return { ok, legacy: true };
 }
 
 // ---------------------------------------------------------------------------
