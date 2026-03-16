@@ -590,6 +590,19 @@ body {
     margin-bottom: 8px;
 }
 
+/* Settings menu modal – stacked action buttons */
+.settings-menu-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.settings-menu-btn {
+    width: 100%;
+    text-align: center;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     .login-box {
