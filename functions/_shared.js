@@ -279,7 +279,7 @@ export async function verifyPassword(inputPassword, storedPassword) {
 }
 
 /** Number of PBKDF2 iterations used when generating new password hashes. */
-const PBKDF2_ITERATIONS = 600_000;
+const PBKDF2_ITERATIONS = 50_000;
 
 /**
  * Generates a new PBKDF2-SHA-256 hash for the given password.
