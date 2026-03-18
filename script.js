@@ -344,6 +344,11 @@ async function handleDeleteCategoryClick() {
         return;
     }
 
+    if (currentSheetName.toUpperCase() === 'GENERAL') {
+        alert(`The "${currentSheetName}" category cannot be deleted.`);
+        return;
+    }
+
     const confirmed = await showConfirmDelete(
         `Are you sure you want to delete the category "${currentSheetName}" and all its tasks? This cannot be undone.`
     );
