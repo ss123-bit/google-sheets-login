@@ -473,21 +473,25 @@ function displayTasks(taskRows) {
             taskRow.appendChild(noteBox);
         }
 
-        const moveUpBtn = document.createElement('button');
-        moveUpBtn.className = 'btn-move-task-up';
-        moveUpBtn.innerHTML = '&#8679;';
-        moveUpBtn.title = 'Move task up';
-        moveUpBtn.disabled = index === 0;
-        moveUpBtn.addEventListener('click', () => moveTask(rowIndex, 'up'));
-        taskRow.appendChild(moveUpBtn);
+        const isSettingsView = currentSheetName === 'Settings';
 
-        const moveDownBtn = document.createElement('button');
-        moveDownBtn.className = 'btn-move-task-down';
-        moveDownBtn.innerHTML = '&#8681;';
-        moveDownBtn.title = 'Move task down';
-        moveDownBtn.disabled = index === taskRows.length - 1;
-        moveDownBtn.addEventListener('click', () => moveTask(rowIndex, 'down'));
-        taskRow.appendChild(moveDownBtn);
+        if (!isSettingsView) {
+            const moveUpBtn = document.createElement('button');
+            moveUpBtn.className = 'btn-move-task-up';
+            moveUpBtn.innerHTML = '&#8679;';
+            moveUpBtn.title = 'Move task up';
+            moveUpBtn.disabled = index === 0;
+            moveUpBtn.addEventListener('click', () => moveTask(rowIndex, 'up'));
+            taskRow.appendChild(moveUpBtn);
+
+            const moveDownBtn = document.createElement('button');
+            moveDownBtn.className = 'btn-move-task-down';
+            moveDownBtn.innerHTML = '&#8681;';
+            moveDownBtn.title = 'Move task down';
+            moveDownBtn.disabled = index === taskRows.length - 1;
+            moveDownBtn.addEventListener('click', () => moveTask(rowIndex, 'down'));
+            taskRow.appendChild(moveDownBtn);
+        }
 
         const editBtn = document.createElement('button');
         editBtn.className = 'btn-edit-task';
@@ -496,12 +500,14 @@ function displayTasks(taskRows) {
         editBtn.addEventListener('click', () => openEditTaskModal(task, note, rowIndex));
         taskRow.appendChild(editBtn);
 
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'btn-delete-task';
-        deleteBtn.innerHTML = '&#10005;';
-        deleteBtn.title = 'Delete this task';
-        deleteBtn.addEventListener('click', () => deleteTask(rowIndex));
-        taskRow.appendChild(deleteBtn);
+        if (!isSettingsView) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-delete-task';
+            deleteBtn.innerHTML = '&#10005;';
+            deleteBtn.title = 'Delete this task';
+            deleteBtn.addEventListener('click', () => deleteTask(rowIndex));
+            taskRow.appendChild(deleteBtn);
+        }
 
         taskItem.appendChild(taskRow);
         tasksList.appendChild(taskItem);
