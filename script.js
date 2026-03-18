@@ -345,7 +345,7 @@ async function handleDeleteCategoryClick() {
     }
 
     if (currentSheetName.toUpperCase() === 'GENERAL') {
-        alert(`The "${currentSheetName}" category cannot be deleted.`);
+        await showInfo(`The "${currentSheetName}" category cannot be deleted.`, 'Cannot delete');
         return;
     }
 
@@ -566,6 +566,35 @@ async function openEditTaskModal(task, note, rowIndex) {
 
     editTaskModal.classList.remove('hidden');
     editTaskText.focus();
+}
+
+// Show a simple informational/warning dialog and return a Promise that resolves when dismissed
+function showInfo(message, title) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('infoModal');
+        const okBtn = document.getElementById('infoModalOkBtn');
+        const msgEl = document.getElementById('infoModalMessage');
+        const titleEl = document.getElementById('infoModalTitle');
+
+        if (!modal || !okBtn) { resolve(); return; }
+
+        if (msgEl) msgEl.textContent = message || '';
+        if (titleEl) titleEl.textContent = title || 'Notice';
+
+        function cleanup() {
+            modal.classList.add('hidden');
+            okBtn.removeEventListener('click', cleanup);
+            modal.removeEventListener('click', onOverlay);
+            resolve();
+        }
+
+        function onOverlay(e) { if (e.target === modal) cleanup(); }
+
+        okBtn.addEventListener('click', cleanup);
+        modal.addEventListener('click', onOverlay);
+
+        modal.classList.remove('hidden');
+    });
 }
 
 // Show a custom confirmation dialog for delete and return a Promise<boolean>
