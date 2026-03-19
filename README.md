@@ -62,8 +62,9 @@ In the Cloudflare dashboard, open your Pages project → **Settings → Environm
 | `APP_AUTH_SECRET` | **Yes** | A long random secret string used to sign session tokens. **The app refuses all requests if this is not set.** Generate with: `openssl rand -hex 32` |
 | `APP_SHEET_ID` | **Yes** | Comma-separated list of permitted Google Spreadsheet IDs. Only these IDs are accepted in API requests. At minimum include your users spreadsheet ID. |
 | `APP_ALLOWED_ORIGINS` | Recommended | Comma-separated list of permitted CORS origins, e.g. `https://your-project.pages.dev`. Defaults to `*` when not set. |
-| `APP_USERS_SHEET_RANGE` | Optional | The A1 range containing the users table (default: `Sheet1!B:D`). Columns: Username \| PasswordHash \| TasksSheetUrl |
+| `APP_USERS_SHEET_RANGE` | Optional | The A1 range containing the users table (default: `Sheet1!B:G`). Columns: Username \| PasswordHash \| TasksSheetUrl \| Credit \| Phone1 \| Phone2 |
 | `APP_USERS_SHEET_ID` | Optional | Spreadsheet ID containing the users table. Defaults to the first ID in `APP_SHEET_ID`. Set this if your users table is in a separate spreadsheet from the tasks sheets. |
+| `TWILIO_AUTH_TOKEN` | Recommended | Twilio account auth token. When set, the SMS webhook validates every inbound request using the `X-Twilio-Signature` header to reject spoofed requests. |
 
 > **Important:** `APP_AUTH_SECRET` and `APP_SHEET_ID` are **required**. The application will deny all API requests if either is missing.
 
@@ -99,6 +100,7 @@ All endpoints are same-origin (`/api/…`) and proxied through Cloudflare Pages 
 | POST | `/api/sheets/append` | **Yes** (`X-App-Auth`) | Append rows to a range |
 | POST | `/api/sheets/update` | **Yes** (`X-App-Auth`) | Update values in a range |
 | POST | `/api/sheets/create-sheet` | **Yes** (`X-App-Auth`) | Create a new tab + optionally append a Settings row |
+| POST | `/api/sms/incoming` | Twilio signature | Twilio webhook for incoming SMS messages |
 
 "Auth required" means the `X-App-Auth` header must contain a valid session token obtained from `/api/auth/login`.
 
@@ -109,6 +111,49 @@ All endpoints are same-origin (`/api/…`) and proxied through Cloudflare Pages 
 3. On success, server returns `{ token, tasksSheetUrl }`.
 4. Browser stores the token in `sessionStorage` (cleared on tab close).
 5. All subsequent API requests include `X-App-Auth: <token>`.
+
+---
+
+### SMS webhook (`/api/sms/incoming`)
+
+Configure your Twilio phone number's "A message comes in" webhook to:
+
+```
+POST https://your-project.pages.dev/api/sms/incoming
+```
+
+**Users spreadsheet layout (columns B–G)**
+
+| Column | Content |
+|--------|---------|
+| B | Username |
+| C | Password hash |
+| D | User's personal Google Sheet URL |
+| E | SMS credit (integer; must be > 0 to accept messages) |
+| F | Primary phone number (E.164, e.g. `+14155552671`) |
+| G | Secondary/alternate phone number |
+
+**User's personal spreadsheet – `Settings` sheet layout (columns A–B)**
+
+| Column | Content |
+|--------|---------|
+| A | Sheet name to route matching messages to |
+| B | Keyword (first word of SMS to match, case-insensitive) |
+
+**Processing logic**
+
+1. Twilio calls the webhook with the sender's number (`From`) and message text (`Body`).
+2. The sender's phone number is looked up in columns F and G of the users sheet.
+3. If no match, or if the user's credit (column E) is ≤ 0, the request is silently ignored.
+4. The user's personal spreadsheet (URL in column D) is opened and the `Settings` sheet is read.
+5. The first word of the SMS is compared (case-insensitively) against every value in column B of `Settings`.
+   - **Match found:** the remainder of the SMS (everything after the first word) is appended to the next empty cell in column A of the sheet named in column A of the matching Settings row.
+   - **No match:** the full SMS text is appended to the next empty cell in column A of a sheet named `GENERAL`.
+6. The user's credit in column E is decremented by 1.
+
+**Twilio signature verification**
+
+Set `TWILIO_AUTH_TOKEN` to your Twilio account auth token.  When set, every inbound webhook request is validated against the `X-Twilio-Signature` header.  Requests with a missing or invalid signature are rejected with HTTP 403.  It is strongly recommended to set this variable in production.
 
 ---
 
