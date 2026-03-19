@@ -304,10 +304,11 @@ async function handleEditTaskOk() {
     const taskText = editTaskText.value.trim();
     const taskNotes = editTaskNotes.value.trim();
     const originalSheet = editTaskModal.dataset.originalSheet;
+    const originalTask = editTaskModal.dataset.originalTask || '';
     const rowIndex = parseInt(editTaskModal.dataset.rowIndex, 10);
 
     if (!taskText) {
-        editTaskError.textContent = 'Please enter a task.';
+        editTaskError.textContent = originalSheet === 'Settings' ? 'Please enter a category name.' : 'Please enter a task.';
         editTaskText.focus();
         return;
     }
@@ -331,7 +332,81 @@ async function handleEditTaskOk() {
         const headers = { 'Content-Type': 'application/json' };
         headers['X-App-Auth'] = getSessionToken() || '';
 
-        if (selectedSheet === originalSheet) {
+        if (originalSheet === 'Settings') {
+            // Editing a category entry in the Settings sheet: always update in place.
+            const rowNumber = rowIndex + 1;
+            const range = `Settings!A${rowNumber}:B${rowNumber}`;
+
+            let updateResponse;
+            try {
+                updateResponse = await fetch('/api/sheets/update', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        sheetId: spreadsheetId,
+                        range,
+                        values: [[taskText, taskNotes]],
+                    }),
+                });
+            } catch (fetchErr) {
+                console.warn('Network error updating category:', fetchErr);
+                throw new Error('Failed to connect to the server. Please check your connection.');
+            }
+
+            if (!updateResponse.ok) {
+                let errMsg = `Server responded with status ${updateResponse.status}.`;
+                try {
+                    const result = await updateResponse.json();
+                    errMsg = result.error || errMsg;
+                } catch (_) { /* ignore */ }
+                throw new Error(errMsg);
+            }
+
+            // If the category name changed, also rename the corresponding sheet tab.
+            if (taskText !== originalTask && originalTask) {
+                let renameResponse;
+                try {
+                    renameResponse = await fetch('/api/sheets/rename-sheet', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({
+                            sheetId: spreadsheetId,
+                            oldName: originalTask,
+                            newName: taskText,
+                        }),
+                    });
+                } catch (fetchErr) {
+                    console.warn('Network error renaming sheet:', fetchErr);
+                    throw new Error('Category name was updated but the sheet tab could not be renamed. Please check your connection.');
+                }
+
+                if (!renameResponse.ok) {
+                    let errMsg = `Server responded with status ${renameResponse.status}.`;
+                    try {
+                        const result = await renameResponse.json();
+                        errMsg = result.error || errMsg;
+                    } catch (_) { /* ignore */ }
+                    throw new Error('Category name was updated but the sheet tab could not be renamed: ' + errMsg);
+                }
+            }
+
+            editTaskModal.classList.add('hidden');
+
+            if (taskText !== originalTask && originalTask) {
+                // Refresh tabs so the renamed sheet tab is reflected.
+                await createSheetTabs(currentTasksSheetUrl);
+                // Return to Settings view after refreshing tabs.
+                sheetTabs.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
+                const refreshedTasks = await loadTasksFromSheet(currentTasksSheetUrl, 'Settings');
+                currentSheetName = 'Settings';
+                displayTasks(refreshedTasks);
+            } else {
+                // Reload the Settings view to reflect any updated values.
+                const tasks = await loadTasksFromSheet(currentTasksSheetUrl, 'Settings');
+                currentSheetName = 'Settings';
+                displayTasks(tasks);
+            }
+        } else if (selectedSheet === originalSheet) {
             // Same category: update the row in place (rowIndex is 0-based; Sheets API is 1-based)
             const escapedSheet = originalSheet.replace(/'/g, "''");
             const quotedSheet = /[^A-Za-z0-9]/.test(originalSheet) ? `'${escapedSheet}'` : escapedSheet;
@@ -361,6 +436,17 @@ async function handleEditTaskOk() {
                     errMsg = result.error || errMsg;
                 } catch (_) { /* ignore */ }
                 throw new Error(errMsg);
+            }
+
+            editTaskModal.classList.add('hidden');
+
+            // Reload tasks: switch back to the original sheet tab
+            const tabs = document.querySelectorAll('.sheet-tab');
+            for (const tab of tabs) {
+                if (tab.textContent === originalSheet) {
+                    await switchToTab(tab, currentTasksSheetUrl, originalSheet);
+                    break;
+                }
             }
         } else {
             // Different category: append to new sheet, then delete from old sheet
@@ -417,16 +503,16 @@ async function handleEditTaskOk() {
                 } catch (_) { /* ignore */ }
                 throw new Error('Task was added to the new category but could not be removed from the original category. You may see the task duplicated. (' + errMsg + ')');
             }
-        }
 
-        editTaskModal.classList.add('hidden');
+            editTaskModal.classList.add('hidden');
 
-        // Reload tasks: switch back to the original sheet tab
-        const tabs = document.querySelectorAll('.sheet-tab');
-        for (const tab of tabs) {
-            if (tab.textContent === originalSheet) {
-                await switchToTab(tab, currentTasksSheetUrl, originalSheet);
-                break;
+            // Reload tasks: switch back to the original sheet tab
+            const tabs = document.querySelectorAll('.sheet-tab');
+            for (const tab of tabs) {
+                if (tab.textContent === originalSheet) {
+                    await switchToTab(tab, currentTasksSheetUrl, originalSheet);
+                    break;
+                }
             }
         }
     } catch (err) {

@@ -530,29 +530,49 @@ async function openEditTaskModal(task, note, rowIndex) {
     const editTaskError = document.getElementById('editTaskError');
     const editTaskOkBtn = document.getElementById('editTaskOkBtn');
 
-    // Populate category dropdown
-    editTaskSheet.innerHTML = '';
-    try {
-        const sheetIdMatch = currentTasksSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-        if (sheetIdMatch) {
-            const sheetNames = await loadSheetMetadata(sheetIdMatch[1]);
-            const filtered = sheetNames.filter(name => name !== 'Settings');
-            filtered.forEach(name => {
-                const opt = document.createElement('option');
-                opt.value = name;
-                opt.textContent = name;
-                if (name === currentSheetName) opt.selected = true;
-                editTaskSheet.appendChild(opt);
-            });
+    const isSettingsView = currentSheetName === 'Settings';
+
+    // Show/hide the category dropdown row and update labels based on context
+    const sheetFormGroup = editTaskSheet.closest('.form-group');
+    const editTaskTextLabel = editTaskText.closest('.form-group') && editTaskText.closest('.form-group').querySelector('label');
+    const editTaskNotesLabel = editTaskNotes.closest('.form-group') && editTaskNotes.closest('.form-group').querySelector('label');
+    const modalTitle = editTaskModal.querySelector('h2');
+
+    if (isSettingsView) {
+        if (sheetFormGroup) sheetFormGroup.style.display = 'none';
+        if (modalTitle) modalTitle.textContent = 'Edit Category';
+        if (editTaskTextLabel) editTaskTextLabel.textContent = 'Category Name';
+        if (editTaskNotesLabel) editTaskNotesLabel.textContent = 'Category Key';
+    } else {
+        if (sheetFormGroup) sheetFormGroup.style.display = '';
+        if (modalTitle) modalTitle.textContent = 'Edit Task';
+        if (editTaskTextLabel) editTaskTextLabel.textContent = 'Task';
+        if (editTaskNotesLabel) editTaskNotesLabel.textContent = 'Notes';
+
+        // Populate category dropdown
+        editTaskSheet.innerHTML = '';
+        try {
+            const sheetIdMatch = currentTasksSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+            if (sheetIdMatch) {
+                const sheetNames = await loadSheetMetadata(sheetIdMatch[1]);
+                const filtered = sheetNames.filter(name => name !== 'Settings');
+                filtered.forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name;
+                    if (name === currentSheetName) opt.selected = true;
+                    editTaskSheet.appendChild(opt);
+                });
+            }
+        } catch (err) {
+            // Leave dropdown with just the current sheet as fallback
+            console.warn('Failed to load categories for edit modal:', err);
+            const opt = document.createElement('option');
+            opt.value = currentSheetName;
+            opt.textContent = currentSheetName;
+            opt.selected = true;
+            editTaskSheet.appendChild(opt);
         }
-    } catch (err) {
-        // Leave dropdown with just the current sheet as fallback
-        console.warn('Failed to load categories for edit modal:', err);
-        const opt = document.createElement('option');
-        opt.value = currentSheetName;
-        opt.textContent = currentSheetName;
-        opt.selected = true;
-        editTaskSheet.appendChild(opt);
     }
 
     editTaskText.value = task;
@@ -562,6 +582,7 @@ async function openEditTaskModal(task, note, rowIndex) {
 
     // Store the original values on the modal for use in the OK handler
     editTaskModal.dataset.originalSheet = currentSheetName;
+    editTaskModal.dataset.originalTask = task;
     editTaskModal.dataset.rowIndex = rowIndex;
 
     editTaskModal.classList.remove('hidden');
