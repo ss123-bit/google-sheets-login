@@ -301,6 +301,16 @@ export function sanitizeValues(rows) {
 }
 
 /**
+ * Builds a TEXTJOIN formula that concatenates all non-empty values in column A
+ * of the given sheet, separated by ", ".
+ * Sheet names containing single quotes are escaped by doubling them.
+ */
+export function buildConcatFormula(sheetName) {
+    const escaped = sheetName.replace(/'/g, "''");
+    return `=TEXTJOIN(", ",TRUE,'${escaped}'!A:A)`;
+}
+
+/**
  * Obtains a short-lived Google OAuth2 access token using the configured
  * service account credentials (JWT bearer flow).
  *

@@ -7,7 +7,7 @@
 // Renames the sheet tab. The Settings sheet cannot be renamed.
 // Requires X-App-Auth header containing a valid session token.
 
-import { getGoogleAccessToken, jsonResponse, errorResponse, getCorsHeaders, checkAuth, validateSheetId } from '../../_shared.js';
+import { getGoogleAccessToken, jsonResponse, errorResponse, getCorsHeaders, checkAuth, validateSheetId, buildConcatFormula } from '../../_shared.js';
 
 export async function onRequestOptions({ request, env }) {
     return new Response(null, { status: 204, headers: getCorsHeaders(request, env) });
@@ -85,6 +85,47 @@ export async function onRequestPost({ request, env }) {
             const errText = await batchRes.text();
             console.error('Sheets API error in rename-sheet batchUpdate:', batchRes.status, errText);
             return errorResponse('Failed to rename sheet', batchRes.status, cors);
+        }
+
+        // Update the TEXTJOIN formula in Settings column C for the renamed sheet.
+        // The client updates Settings column A (category name) before calling this
+        // endpoint, so the row is identified by column A = newName.
+        try {
+            const settingsRes = await fetch(
+                `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/Settings!A:A`,
+                { headers: { Authorization: `Bearer ${token}` } },
+            );
+
+            if (settingsRes.ok) {
+                const settingsData = await settingsRes.json();
+                const rows = settingsData.values || [];
+                const rowIndex = rows.findIndex((row) => row[0] === newName);
+                if (rowIndex !== -1) {
+                    const rowNumber = rowIndex + 1;
+                    const formula = buildConcatFormula(newName);
+                    const updateRes = await fetch(
+                        `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(`Settings!C${rowNumber}`)}?valueInputOption=USER_ENTERED`,
+                        {
+                            method: 'PUT',
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                range: `Settings!C${rowNumber}`,
+                                majorDimension: 'ROWS',
+                                values: [[formula]],
+                            }),
+                        },
+                    );
+                    if (!updateRes.ok) {
+                        console.warn('Failed to update Settings column C formula after rename:', updateRes.status);
+                    }
+                }
+            }
+        } catch (formulaErr) {
+            console.warn('Failed to update Settings formula after rename:', formulaErr);
+            // Non-fatal: the rename succeeded; log the warning but return success.
         }
 
         return jsonResponse({ success: true }, 200, cors);
