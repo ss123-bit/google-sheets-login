@@ -488,22 +488,6 @@ body {
     border-color: var(--white);
 }
 
-.btn-admin {
-    background: rgba(255, 255, 255, 0.15);
-    color: var(--white);
-    border: 2px solid rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(4px);
-}
-
-.btn-admin:hover {
-    background: rgba(255, 255, 255, 0.25);
-    border-color: var(--white);
-}
-
-.btn-admin.hidden {
-    display: none;
-}
-
 /* Modal select */
 .modal-select {
     width: 100%;
