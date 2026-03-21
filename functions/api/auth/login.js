@@ -97,7 +97,7 @@ export async function onRequestPost({ request, env }) {
     // Otherwise, the first ID in APP_SHEET_ID is used.
     const usersSheetId = (env.APP_USERS_SHEET_ID || sheetIdRaw.split(',')[0]).trim();
 
-    const usersRange = (env.APP_USERS_SHEET_RANGE || 'Sheet1!B:D').trim();
+    const usersRange = (env.APP_USERS_SHEET_RANGE || 'Sheet1!B:H').trim();
 
     // --- Parse body ---
     let body;
@@ -147,6 +147,8 @@ export async function onRequestPost({ request, env }) {
 
     const storedPassword = userRow[1] || '';
     const tasksSheetUrl = userRow[2] || '';
+    const role = (userRow[6] || '').trim().toLowerCase();
+    const isAdmin = role === 'admin';
 
     // --- Verify password ---
     const { ok, legacy } = await verifyPassword(password, storedPassword);
@@ -167,5 +169,5 @@ export async function onRequestPost({ request, env }) {
         return errorResponse('Authentication service unavailable.', 503, cors);
     }
 
-    return jsonResponse({ token: sessionToken, tasksSheetUrl }, 200, cors);
+    return jsonResponse({ token: sessionToken, tasksSheetUrl, isAdmin }, 200, cors);
 }
