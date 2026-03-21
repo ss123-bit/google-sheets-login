@@ -9,7 +9,7 @@
 // Optionally appends a row to the 'Settings' tab.
 // Requires X-App-Auth header containing a valid session token.
 
-import { getGoogleAccessToken, jsonResponse, errorResponse, getCorsHeaders, CORS_HEADERS, checkAuth, validateSheetId, sanitizeValues } from '../../_shared.js';
+import { getGoogleAccessToken, jsonResponse, errorResponse, getCorsHeaders, CORS_HEADERS, checkAuth, validateSheetId, sanitizeValues, buildConcatFormula } from '../../_shared.js';
 
 export async function onRequestOptions({ request, env }) {
     return new Response(null, { status: 204, headers: getCorsHeaders(request, env) });
@@ -81,17 +81,26 @@ export async function onRequestPost({ request, env }) {
         }
 
         // Optionally append a row to the Settings sheet.
-        // Use RAW valueInputOption to prevent formula injection.
+        // Columns A and B come from user input and are sanitised to prevent formula
+        // injection even when using USER_ENTERED.  Column C holds a server-generated
+        // TEXTJOIN formula that concatenates all values in column A of the new sheet
+        // and must not be sanitised.
         if (Array.isArray(settingsRow) && settingsRow.length > 0) {
+            // Ensure we always have at least two user-supplied columns (name, key).
+            const paddedRow = settingsRow.slice(0, 2);
+            while (paddedRow.length < 2) paddedRow.push('');
+            const sanitisedCols = sanitizeValues([paddedRow])[0];
+            const formula = buildConcatFormula(title);
+            const rowToWrite = [...sanitisedCols, formula];
             const appendRes = await fetch(
-                `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/Settings:append?valueInputOption=RAW`,
+                `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/Settings:append?valueInputOption=USER_ENTERED`,
                 {
                     method: 'POST',
                     headers: {
                         Authorization: `Bearer ${token}`,
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ values: sanitizeValues([settingsRow]) }),
+                    body: JSON.stringify({ values: [rowToWrite] }),
                 },
             );
 
