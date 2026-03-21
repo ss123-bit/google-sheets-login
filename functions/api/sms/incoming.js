@@ -253,10 +253,10 @@ export async function onRequestPost({ request, env }) {
 
     // --- Determine target sheet and message content ---
     // Split the SMS body into the first word and the remainder.
-    const spaceIndex = smsBody.indexOf(' ');
-    const firstWord = spaceIndex >= 0 ? smsBody.slice(0, spaceIndex) : smsBody;
-    const remainder = spaceIndex >= 0 ? smsBody.slice(spaceIndex + 1).trim() : '';
-
+    const normalizedBody = smsBody.replace(/\s+/g, ' ').trim(); // collapse any whitespace runs
+    const spaceIndex = normalizedBody.indexOf(' ');
+    const firstWord = spaceIndex >= 0 ? normalizedBody.slice(0, spaceIndex) : normalizedBody;
+    const remainder = spaceIndex >= 0 ? normalizedBody.slice(spaceIndex + 1).trim() : '';
     let targetSheetName = 'GENERAL';
     let messageToAppend = smsBody;
 
