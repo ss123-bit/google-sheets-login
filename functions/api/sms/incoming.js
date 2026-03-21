@@ -262,7 +262,7 @@ export async function onRequestPost({ request, env }) {
 
     for (const settingsRow of settingsRows) {
         const keyword = (settingsRow[1] || '').trim();
-        if (keyword && keyword.toLowerCase() === firstWord.toLowerCase()) {
+        if (keyword && keyword === firstWord) {
             const sheetFromSettings = (settingsRow[0] || '').trim();
             if (!sheetFromSettings) {
                 console.warn('SMS webhook: matched keyword but column A is empty in Settings row – falling back to GENERAL');
