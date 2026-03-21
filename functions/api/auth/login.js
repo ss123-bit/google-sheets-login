@@ -9,8 +9,9 @@
 //   APP_AUTH_SECRET     – shared HMAC secret used to sign session tokens
 //   APP_SHEET_ID        – spreadsheet ID that contains the users tab
 //                         (comma-separated if multiple IDs are allowed)
-//   APP_USERS_SHEET_RANGE – optional range of users data, defaults to Sheet1!B:D
-//                           Columns: Username | PasswordHash | TasksSheetUrl
+//   APP_USERS_SHEET_RANGE – optional range of users data, defaults to Sheet1!B:H
+//                           Columns: Username | PasswordHash | TasksSheetUrl | (D) | (E) | (F) | Role
+//                           Column H (index 6): set to "admin" to grant admin privileges
 //
 // Password column format:
 //   Plaintext (legacy):  any string without a "pbkdf2:" prefix  →  accepted but
@@ -97,7 +98,7 @@ export async function onRequestPost({ request, env }) {
     // Otherwise, the first ID in APP_SHEET_ID is used.
     const usersSheetId = (env.APP_USERS_SHEET_ID || sheetIdRaw.split(',')[0]).trim();
 
-    const usersRange = (env.APP_USERS_SHEET_RANGE || 'Sheet1!B:D').trim();
+    const usersRange = (env.APP_USERS_SHEET_RANGE || 'Sheet1!B:H').trim();
 
     // --- Parse body ---
     let body;
@@ -147,6 +148,9 @@ export async function onRequestPost({ request, env }) {
 
     const storedPassword = userRow[1] || '';
     const tasksSheetUrl = userRow[2] || '';
+    // Column H (index 6 from range start B) holds the user role.
+    const role = (userRow[6] || '').trim().toLowerCase();
+    const isAdmin = role === 'admin';
 
     // --- Verify password ---
     const { ok, legacy } = await verifyPassword(password, storedPassword);
@@ -167,5 +171,5 @@ export async function onRequestPost({ request, env }) {
         return errorResponse('Authentication service unavailable.', 503, cors);
     }
 
-    return jsonResponse({ token: sessionToken, tasksSheetUrl }, 200, cors);
+    return jsonResponse({ token: sessionToken, tasksSheetUrl, isAdmin }, 200, cors);
 }
