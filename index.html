@@ -67,6 +67,7 @@
                 <button id="deleteCategoryBtn" class="btn btn-delete-category">&#128465; Delete Category</button>
                 <button id="newCategoryBtn" class="btn btn-new-category">+ New Category</button>
                 <button id="newTaskBtn" class="btn btn-new-task">+ Task</button>
+                <button id="adminBtn" class="btn btn-admin hidden">&#128737; Admin</button>
             </footer>
         </div>
     </div>
@@ -208,6 +209,43 @@
             <p id="creditMessage" class="confirm-delete-msg">Loading...</p>
             <div class="modal-actions">
                 <button id="creditCloseBtn" class="btn btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Menu Modal -->
+    <div id="adminMenuModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h2>Admin</h2>
+            <div class="settings-menu-actions">
+                <button id="adminAddUserBtn" class="btn btn-primary-small settings-menu-btn">Add User</button>
+            </div>
+            <div class="modal-actions">
+                <button id="adminMenuCancelBtn" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h2>Add User</h2>
+            <div class="form-group">
+                <label for="addUserUsername">Username</label>
+                <input type="text" id="addUserUsername" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label for="addUserPassword">Password</label>
+                <input type="password" id="addUserPassword" placeholder="Enter password (min 6 chars)">
+            </div>
+            <div class="form-group">
+                <label for="addUserTasksUrl">Tasks Sheet URL <span style="font-weight:normal;color:#6b7280;">(optional)</span></label>
+                <input type="text" id="addUserTasksUrl" placeholder="https://docs.google.com/spreadsheets/...">
+            </div>
+            <div id="addUserError" class="modal-error"></div>
+            <div class="modal-actions">
+                <button id="addUserCancelBtn" class="btn btn-secondary">Cancel</button>
+                <button id="addUserOkBtn" class="btn btn-primary-small">Add User</button>
             </div>
         </div>
     </div>

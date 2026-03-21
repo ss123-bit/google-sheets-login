@@ -40,6 +40,7 @@ const scrollTabsLeft = document.getElementById('scrollTabsLeft');
 const scrollTabsRight = document.getElementById('scrollTabsRight');
 const settingsBtn = document.getElementById('settingsBtn');
 const deleteCategoryBtn = document.getElementById('deleteCategoryBtn');
+const adminBtn = document.getElementById('adminBtn');
 
 // State
 let currentTasksSheetUrl = '';
@@ -95,6 +96,43 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === document.getElementById('creditModal')) {
             document.getElementById('creditModal').classList.add('hidden');
         }
+    });
+
+    // Admin menu modal
+    adminBtn.addEventListener('click', () => {
+        document.getElementById('adminMenuModal').classList.remove('hidden');
+    });
+    document.getElementById('adminMenuCancelBtn').addEventListener('click', () => {
+        document.getElementById('adminMenuModal').classList.add('hidden');
+    });
+    document.getElementById('adminMenuModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('adminMenuModal')) {
+            document.getElementById('adminMenuModal').classList.add('hidden');
+        }
+    });
+    document.getElementById('adminAddUserBtn').addEventListener('click', () => {
+        document.getElementById('adminMenuModal').classList.add('hidden');
+        document.getElementById('addUserUsername').value = '';
+        document.getElementById('addUserPassword').value = '';
+        document.getElementById('addUserTasksUrl').value = '';
+        document.getElementById('addUserError').textContent = '';
+        document.getElementById('addUserOkBtn').disabled = false;
+        document.getElementById('addUserModal').classList.remove('hidden');
+        document.getElementById('addUserUsername').focus();
+    });
+
+    // Add user modal
+    document.getElementById('addUserCancelBtn').addEventListener('click', () => {
+        document.getElementById('addUserModal').classList.add('hidden');
+    });
+    document.getElementById('addUserModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('addUserModal')) {
+            document.getElementById('addUserModal').classList.add('hidden');
+        }
+    });
+    document.getElementById('addUserOkBtn').addEventListener('click', handleAddUserOk);
+    document.getElementById('addUserPassword').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); handleAddUserOk(); }
     });
 });
 
@@ -419,7 +457,7 @@ async function handleLogin(e) {
         sessionStorage.setItem(SESSION_TOKEN_KEY, data.token);
 
         // Proceed to the tasks page
-        await loginSuccess(username, data.tasksSheetUrl);
+        await loginSuccess(username, data.tasksSheetUrl, data.isAdmin === true);
     } catch {
         showError('Unable to connect to the server. Please try again.');
     } finally {
@@ -428,10 +466,17 @@ async function handleLogin(e) {
 }
 
 // Login successful
-async function loginSuccess(username, tasksSheetUrl) {
+async function loginSuccess(username, tasksSheetUrl, isAdmin = false) {
     // Update welcome message
     welcomeUsername.textContent = username;
     currentUsername = username;
+
+    // Show or hide the admin button based on role
+    if (isAdmin) {
+        adminBtn.classList.remove('hidden');
+    } else {
+        adminBtn.classList.add('hidden');
+    }
 
     // Switch pages first so tabs/tasks are visible when loaded
     loginPage.classList.remove('active');
@@ -443,6 +488,55 @@ async function loginSuccess(username, tasksSheetUrl) {
 
     // Build sheet tabs and display tasks
     await createSheetTabs(tasksSheetUrl);
+}
+
+// Handle add user (admin only)
+async function handleAddUserOk() {
+    const username = document.getElementById('addUserUsername').value.trim();
+    const password = document.getElementById('addUserPassword').value;
+    const tasksSheetUrl = document.getElementById('addUserTasksUrl').value.trim();
+    const addUserError = document.getElementById('addUserError');
+    const addUserOkBtn = document.getElementById('addUserOkBtn');
+
+    if (!username) {
+        addUserError.textContent = 'Please enter a username.';
+        document.getElementById('addUserUsername').focus();
+        return;
+    }
+    if (!password) {
+        addUserError.textContent = 'Please enter a password.';
+        document.getElementById('addUserPassword').focus();
+        return;
+    }
+    if (password.length < 6) {
+        addUserError.textContent = 'Password must be at least 6 characters.';
+        document.getElementById('addUserPassword').focus();
+        return;
+    }
+
+    addUserOkBtn.disabled = true;
+    addUserError.textContent = '';
+
+    try {
+        const response = await fetch('/api/admin/add-user', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ username, password, tasksSheetUrl }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            addUserError.textContent = data.error || 'Failed to add user.';
+            addUserOkBtn.disabled = false;
+            return;
+        }
+
+        document.getElementById('addUserModal').classList.add('hidden');
+    } catch {
+        addUserError.textContent = 'Unable to connect to the server. Please try again.';
+        addUserOkBtn.disabled = false;
+    }
 }
 
 // Display tasks
@@ -714,6 +808,7 @@ async function moveTask(rowIndex, direction) {
 function handleLogout() {
     sessionStorage.removeItem(SESSION_TOKEN_KEY);
     currentUsername = '';
+    adminBtn.classList.add('hidden');
     tasksPage.classList.remove('active');
     loginPage.classList.add('active');
     usernameInput.focus();
