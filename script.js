@@ -40,13 +40,11 @@ const scrollTabsLeft = document.getElementById('scrollTabsLeft');
 const scrollTabsRight = document.getElementById('scrollTabsRight');
 const settingsBtn = document.getElementById('settingsBtn');
 const deleteCategoryBtn = document.getElementById('deleteCategoryBtn');
-const adminBtn = document.getElementById('adminBtn');
 
 // State
 let currentTasksSheetUrl = '';
 let currentSheetName = '';
 let currentUsername = '';
-let isCurrentUserAdmin = false;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -61,32 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
     sheetTabs.addEventListener('scroll', updateScrollButtons);
     settingsBtn.addEventListener('click', handleSettingsClick);
     deleteCategoryBtn.addEventListener('click', handleDeleteCategoryClick);
-    adminBtn.addEventListener('click', handleAdminClick);
-
-    // Admin menu modal
-    document.getElementById('adminAddUserBtn').addEventListener('click', handleAdminAddUserClick);
-    document.getElementById('adminMenuCancelBtn').addEventListener('click', () => {
-        document.getElementById('adminMenuModal').classList.add('hidden');
-    });
-    document.getElementById('adminMenuModal').addEventListener('click', (e) => {
-        if (e.target === document.getElementById('adminMenuModal')) {
-            document.getElementById('adminMenuModal').classList.add('hidden');
-        }
-    });
-
-    // Add user modal
-    document.getElementById('addUserOkBtn').addEventListener('click', handleAddUserOk);
-    document.getElementById('addUserCancelBtn').addEventListener('click', () => {
-        document.getElementById('addUserModal').classList.add('hidden');
-    });
-    document.getElementById('addUserModal').addEventListener('click', (e) => {
-        if (e.target === document.getElementById('addUserModal')) {
-            document.getElementById('addUserModal').classList.add('hidden');
-        }
-    });
-    document.getElementById('addUserTasksSheetUrl').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') handleAddUserOk();
-    });
 
     // Settings menu modal
     document.getElementById('settingsCategoriesBtn').addEventListener('click', handleCategoriesClick);
@@ -178,13 +150,6 @@ async function loadTasksFromSheet(tasksSheetUrl, sheetName = 'Sheet1') {
     }
 }
 
-// Show a loading message in the tasks area while tasks are being fetched
-function showTasksLoading() {
-    tasksList.innerHTML = '';
-    noTasks.textContent = 'Loading...';
-    noTasks.style.display = 'block';
-}
-
 // Update visibility of scroll buttons based on tab overflow
 function updateScrollButtons() {
     const hasOverflow = sheetTabs.scrollWidth > sheetTabs.clientWidth;
@@ -198,7 +163,6 @@ function updateScrollButtons() {
 async function createSheetTabs(tasksSheetUrl) {
     currentTasksSheetUrl = tasksSheetUrl;
     sheetTabs.innerHTML = '';
-    showTasksLoading();
     updateScrollButtons();
 
     const sheetIdMatch = tasksSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
@@ -254,9 +218,6 @@ async function switchToTab(tabElement, tasksSheetUrl, sheetName) {
     // Update active tab styling
     sheetTabs.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
     tabElement.classList.add('active');
-
-    // Show loading while tasks are being fetched
-    showTasksLoading();
 
     // Load tasks for the selected sheet
     const tasks = await loadTasksFromSheet(tasksSheetUrl, sheetName);
@@ -458,7 +419,7 @@ async function handleLogin(e) {
         sessionStorage.setItem(SESSION_TOKEN_KEY, data.token);
 
         // Proceed to the tasks page
-        await loginSuccess(username, data.tasksSheetUrl, !!data.isAdmin);
+        await loginSuccess(username, data.tasksSheetUrl);
     } catch {
         showError('Unable to connect to the server. Please try again.');
     } finally {
@@ -467,18 +428,10 @@ async function handleLogin(e) {
 }
 
 // Login successful
-async function loginSuccess(username, tasksSheetUrl, isAdmin = false) {
+async function loginSuccess(username, tasksSheetUrl) {
     // Update welcome message
     welcomeUsername.textContent = username;
     currentUsername = username;
-    isCurrentUserAdmin = isAdmin;
-
-    // Show or hide the admin button based on the user's role
-    if (isAdmin) {
-        adminBtn.classList.remove('hidden');
-    } else {
-        adminBtn.classList.add('hidden');
-    }
 
     // Switch pages first so tabs/tasks are visible when loaded
     loginPage.classList.remove('active');
@@ -761,8 +714,6 @@ async function moveTask(rowIndex, direction) {
 function handleLogout() {
     sessionStorage.removeItem(SESSION_TOKEN_KEY);
     currentUsername = '';
-    isCurrentUserAdmin = false;
-    adminBtn.classList.add('hidden');
     tasksPage.classList.remove('active');
     loginPage.classList.add('active');
     usernameInput.focus();
@@ -796,66 +747,4 @@ function escapeHtml(text) {
         "'": '&#039;'
     };
     return text.replace(/[&<>"']/g, m => map[m]);
-}
-
-// Open the admin menu modal
-function handleAdminClick() {
-    document.getElementById('adminMenuModal').classList.remove('hidden');
-}
-
-// Open the Add User modal from the admin menu
-function handleAdminAddUserClick() {
-    document.getElementById('adminMenuModal').classList.add('hidden');
-    const modal = document.getElementById('addUserModal');
-    document.getElementById('addUserUsername').value = '';
-    document.getElementById('addUserPassword').value = '';
-    document.getElementById('addUserTasksSheetUrl').value = '';
-    document.getElementById('addUserError').textContent = '';
-    document.getElementById('addUserOkBtn').disabled = false;
-    modal.classList.remove('hidden');
-    document.getElementById('addUserUsername').focus();
-}
-
-// Submit the Add User form
-async function handleAddUserOk() {
-    const usernameVal = document.getElementById('addUserUsername').value.trim();
-    const passwordVal = document.getElementById('addUserPassword').value;
-    const tasksSheetUrlVal = document.getElementById('addUserTasksSheetUrl').value.trim();
-    const errorEl = document.getElementById('addUserError');
-    const okBtn = document.getElementById('addUserOkBtn');
-
-    errorEl.textContent = '';
-
-    if (!usernameVal) {
-        errorEl.textContent = 'Please enter a username.';
-        document.getElementById('addUserUsername').focus();
-        return;
-    }
-    if (!passwordVal) {
-        errorEl.textContent = 'Please enter a password.';
-        document.getElementById('addUserPassword').focus();
-        return;
-    }
-
-    okBtn.disabled = true;
-    try {
-        const response = await fetch('/api/auth/add-user', {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ username: usernameVal, password: passwordVal, tasksSheetUrl: tasksSheetUrlVal }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            errorEl.textContent = data.error || 'Failed to add user.';
-            okBtn.disabled = false;
-            return;
-        }
-
-        document.getElementById('addUserModal').classList.add('hidden');
-    } catch {
-        errorEl.textContent = 'Unable to connect to the server. Please try again.';
-        okBtn.disabled = false;
-    }
 }

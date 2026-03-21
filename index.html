@@ -67,7 +67,6 @@
                 <button id="deleteCategoryBtn" class="btn btn-delete-category">&#128465; Delete Category</button>
                 <button id="newCategoryBtn" class="btn btn-new-category">+ New Category</button>
                 <button id="newTaskBtn" class="btn btn-new-task">+ Task</button>
-                <button id="adminBtn" class="btn btn-admin hidden">&#9737; Admin</button>
             </footer>
         </div>
     </div>
@@ -215,42 +214,5 @@
 
     <script src="script.js"></script>
     <script src="user_actions.js"></script>
-
-    <!-- Admin Menu Modal -->
-    <div id="adminMenuModal" class="modal-overlay hidden">
-        <div class="modal-box">
-            <h2>Admin Panel</h2>
-            <div class="settings-menu-actions">
-                <button id="adminAddUserBtn" class="btn btn-primary-small settings-menu-btn">Add User</button>
-            </div>
-            <div class="modal-actions">
-                <button id="adminMenuCancelBtn" class="btn btn-secondary">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add User Modal -->
-    <div id="addUserModal" class="modal-overlay hidden">
-        <div class="modal-box">
-            <h2>Add User</h2>
-            <div class="form-group">
-                <label for="addUserUsername">Username</label>
-                <input type="text" id="addUserUsername" placeholder="Enter username">
-            </div>
-            <div class="form-group">
-                <label for="addUserPassword">Password</label>
-                <input type="password" id="addUserPassword" placeholder="Enter password">
-            </div>
-            <div class="form-group">
-                <label for="addUserTasksSheetUrl">Tasks Sheet URL</label>
-                <input type="text" id="addUserTasksSheetUrl" placeholder="Enter tasks sheet URL (optional)">
-            </div>
-            <div id="addUserError" class="modal-error"></div>
-            <div class="modal-actions">
-                <button id="addUserCancelBtn" class="btn btn-secondary">Cancel</button>
-                <button id="addUserOkBtn" class="btn btn-primary-small">OK</button>
-            </div>
-        </div>
-    </div>
 </body>
 </html>
