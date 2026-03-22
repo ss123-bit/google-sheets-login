@@ -318,8 +318,12 @@ export function buildConcatFormula(sheetName) {
  *   GOOGLE_SERVICE_ACCOUNT_EMAIL  – service account email address
  *   GOOGLE_PRIVATE_KEY            – PEM-encoded RSA private key
  *                                   (newlines may be stored as literal \n)
+ *
+ * @param {object} env - Cloudflare environment variables
+ * @param {string} [extraScope] - Optional additional OAuth2 scope to request
+ *                                alongside the default spreadsheets scope.
  */
-export async function getGoogleAccessToken(env) {
+export async function getGoogleAccessToken(env, extraScope) {
     const email = env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     let pem = env.GOOGLE_PRIVATE_KEY;
 
@@ -335,9 +339,11 @@ export async function getGoogleAccessToken(env) {
 
     const now = Math.floor(Date.now() / 1000);
     const header = { alg: 'RS256', typ: 'JWT' };
+    const baseScope = 'https://www.googleapis.com/auth/spreadsheets';
+    const scope = extraScope ? `${baseScope} ${extraScope}` : baseScope;
     const claims = {
         iss: email,
-        scope: 'https://www.googleapis.com/auth/spreadsheets',
+        scope,
         aud: 'https://oauth2.googleapis.com/token',
         iat: now,
         exp: now + 3600,

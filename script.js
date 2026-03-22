@@ -114,7 +114,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('adminMenuModal').classList.add('hidden');
         document.getElementById('addUserUsername').value = '';
         document.getElementById('addUserPassword').value = '';
-        document.getElementById('addUserTasksUrl').value = '';
+        document.getElementById('addUserCredit').value = '';
+        document.getElementById('addUserNumber1').value = '';
+        document.getElementById('addUserNumber2').value = '';
         document.getElementById('addUserError').textContent = '';
         document.getElementById('addUserOkBtn').disabled = false;
         document.getElementById('addUserModal').classList.remove('hidden');
@@ -133,6 +135,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('addUserOkBtn').addEventListener('click', handleAddUserOk);
     document.getElementById('addUserPassword').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); handleAddUserOk(); }
+    });
+
+    // Add user success modal
+    document.getElementById('addUserSuccessCloseBtn').addEventListener('click', () => {
+        document.getElementById('addUserSuccessModal').classList.add('hidden');
+    });
+    document.getElementById('addUserSuccessModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('addUserSuccessModal')) {
+            document.getElementById('addUserSuccessModal').classList.add('hidden');
+        }
     });
 });
 
@@ -494,7 +506,9 @@ async function loginSuccess(username, tasksSheetUrl, isAdmin = false) {
 async function handleAddUserOk() {
     const username = document.getElementById('addUserUsername').value.trim();
     const password = document.getElementById('addUserPassword').value;
-    const tasksSheetUrl = document.getElementById('addUserTasksUrl').value.trim();
+    const credit = document.getElementById('addUserCredit').value.trim();
+    const number1 = document.getElementById('addUserNumber1').value.trim();
+    const number2 = document.getElementById('addUserNumber2').value.trim();
     const addUserError = document.getElementById('addUserError');
     const addUserOkBtn = document.getElementById('addUserOkBtn');
 
@@ -513,6 +527,31 @@ async function handleAddUserOk() {
         document.getElementById('addUserPassword').focus();
         return;
     }
+    if (credit === '') {
+        addUserError.textContent = 'Please enter a credit amount.';
+        document.getElementById('addUserCredit').focus();
+        return;
+    }
+    if (Number.isNaN(Number(credit))) {
+        addUserError.textContent = 'Credit must be a valid number.';
+        document.getElementById('addUserCredit').focus();
+        return;
+    }
+    if (number1 === '') {
+        addUserError.textContent = 'Please enter Number 1.';
+        document.getElementById('addUserNumber1').focus();
+        return;
+    }
+    if (Number.isNaN(Number(number1))) {
+        addUserError.textContent = 'Number 1 must be a valid number.';
+        document.getElementById('addUserNumber1').focus();
+        return;
+    }
+    if (number2 !== '' && Number.isNaN(Number(number2))) {
+        addUserError.textContent = 'Number 2 must be a valid number.';
+        document.getElementById('addUserNumber2').focus();
+        return;
+    }
 
     addUserOkBtn.disabled = true;
     addUserError.textContent = '';
@@ -521,7 +560,7 @@ async function handleAddUserOk() {
         const response = await fetch('/api/admin/add-user', {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({ username, password, tasksSheetUrl }),
+            body: JSON.stringify({ username, password, credit, number1, number2 }),
         });
 
         const data = await response.json();
@@ -533,6 +572,14 @@ async function handleAddUserOk() {
         }
 
         document.getElementById('addUserModal').classList.add('hidden');
+
+        // Show styled success modal with workbook details.
+        const workbookId = data.workbookId || '';
+        const workbookUrl = data.workbookUrl || `https://docs.google.com/spreadsheets/d/${workbookId}`;
+        document.getElementById('addUserWorkbookId').textContent = workbookId;
+        const link = document.getElementById('addUserWorkbookLink');
+        link.href = workbookUrl;
+        document.getElementById('addUserSuccessModal').classList.remove('hidden');
     } catch {
         addUserError.textContent = 'Unable to connect to the server. Please try again.';
         addUserOkBtn.disabled = false;
