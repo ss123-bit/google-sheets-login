@@ -1,13 +1,21 @@
 // functions/api/admin/add-user.js
 // POST /api/admin/add-user
-// Body: { username, password, tasksSheetUrl? }
+// Body: { username, password, credit, number1, number2? }
 //
-// Creates a new user in the users spreadsheet.
+// Creates a new user in the users spreadsheet and provisions a new Google
+// Sheets workbook for the user (named after the username).
+//
 // Only users whose row in column H contains "admin" may call this endpoint.
 //
-// The new user is appended as a new row with columns:
-//   B: Username | C: PBKDF2 password hash | D: TasksSheetUrl (optional)
-// Column H (role) is left blank, making the new user a non-admin by default.
+// Steps performed:
+//   1. Validate the requesting user is an admin.
+//   2. Create a new Google Sheets workbook titled after the new username,
+//      with two sheets: "GENERAL" and "Settings".
+//   3. Share the workbook with the service account as editor (Drive API).
+//   4. Append a new row to the users sheet with columns:
+//        B: Username | C: PBKDF2 password hash | D: Credit
+//        E: Number 1  | F: Number 2 (optional)  | G: Workbook ID
+//      Column H (role) is left blank, making the new user a non-admin.
 //
 // Requires the same environment variables as login.js.
 
@@ -56,7 +64,7 @@ export async function onRequestPost({ request, env }) {
         return errorResponse('Invalid request body.', 400, cors);
     }
 
-    const { username, password, tasksSheetUrl } = body || {};
+    const { username, password, credit, number1, number2 } = body || {};
     if (!username || !password || typeof username !== 'string' || typeof password !== 'string') {
         return errorResponse('username and password are required.', 400, cors);
     }
@@ -66,11 +74,28 @@ export async function onRequestPost({ request, env }) {
     if (password.length < 6) {
         return errorResponse('password must be at least 6 characters.', 400, cors);
     }
+    if (credit === undefined || credit === null || credit === '') {
+        return errorResponse('credit is required.', 400, cors);
+    }
+    if (Number.isNaN(Number(credit))) {
+        return errorResponse('credit must be a valid number.', 400, cors);
+    }
+    if (number1 === undefined || number1 === null || number1 === '') {
+        return errorResponse('number1 is required.', 400, cors);
+    }
+    if (Number.isNaN(Number(number1))) {
+        return errorResponse('number1 must be a valid number.', 400, cors);
+    }
+    if (number2 !== undefined && number2 !== null && number2 !== '' && Number.isNaN(Number(number2))) {
+        return errorResponse('number2 must be a valid number.', 400, cors);
+    }
 
     // --- Fetch users to verify requesting user is admin and check for duplicates ---
     let token;
     try {
-        token = await getGoogleAccessToken(env);
+        // Request both Sheets and Drive scopes so we can create and share the
+        // new workbook in the same token request.
+        token = await getGoogleAccessToken(env, 'https://www.googleapis.com/auth/drive');
     } catch {
         console.error('Failed to obtain Google access token');
         return errorResponse('Authentication service unavailable.', 503, cors);
@@ -112,16 +137,81 @@ export async function onRequestPost({ request, env }) {
         return errorResponse('Server error.', 500, cors);
     }
 
+    // --- Create a new Google Sheets workbook for the user ---
+    // The workbook is titled after the username and pre-provisioned with two
+    // sheets: "GENERAL" (the default working sheet) and "Settings".
+    let newSpreadsheetId;
+    try {
+        const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                properties: { title: username.trim() },
+                sheets: [
+                    { properties: { title: 'GENERAL', sheetId: 0 } },
+                    { properties: { title: 'Settings', sheetId: 1 } },
+                ],
+            }),
+        });
+        if (!createRes.ok) {
+            const errText = await createRes.text();
+            console.error('Sheets API error creating workbook:', errText);
+            return errorResponse('Failed to create user workbook.', 503, cors);
+        }
+        const createData = await createRes.json();
+        newSpreadsheetId = createData.spreadsheetId;
+    } catch {
+        console.error('Network error creating workbook');
+        return errorResponse('Failed to create user workbook.', 503, cors);
+    }
+
+    // --- Share the new workbook with the service account as editor ---
+    // This makes the service account's access explicit and visible in the
+    // sharing settings, even though the service account is already the owner.
+    const serviceAccountEmail = env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    if (serviceAccountEmail) {
+        try {
+            const shareRes = await fetch(
+                `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(newSpreadsheetId)}/permissions`,
+                {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        role: 'writer',
+                        type: 'user',
+                        emailAddress: serviceAccountEmail,
+                    }),
+                },
+            );
+            if (!shareRes.ok) {
+                // Non-fatal: log but continue – the SA already owns the file.
+                console.warn('Drive API warning sharing workbook with service account');
+            }
+        } catch {
+            console.warn('Network warning sharing workbook with service account');
+        }
+    }
+
     // --- Append new user row ---
-    // Extract sheet name and start column from range to build the append range.
+    // Columns B–G: Username, Password, Credit, Number 1, Number 2, Workbook ID.
+    // Column H (role) is intentionally left blank (non-admin by default).
     const sheetNameMatch = usersRange.match(/^(.+?)!/);
     const sheetName = sheetNameMatch ? sheetNameMatch[1] : 'Sheet1';
-    const appendRange = `${sheetName}!B:D`;
+    const appendRange = `${sheetName}!B:G`;
 
     const newRow = [
         sanitizeValue(username.trim()),
         passwordHash,
-        sanitizeValue((tasksSheetUrl || '').trim()),
+        sanitizeValue(String(credit).trim()),
+        sanitizeValue(String(number1).trim()),
+        sanitizeValue(String(number2 || '').trim()),
+        newSpreadsheetId,
     ];
 
     try {
@@ -143,5 +233,9 @@ export async function onRequestPost({ request, env }) {
         return errorResponse('Failed to create user.', 503, cors);
     }
 
-    return jsonResponse({ success: true }, 200, cors);
+    return jsonResponse({
+        success: true,
+        workbookId: newSpreadsheetId,
+        workbookUrl: `https://docs.google.com/spreadsheets/d/${newSpreadsheetId}`,
+    }, 200, cors);
 }

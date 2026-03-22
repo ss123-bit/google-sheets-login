@@ -239,13 +239,45 @@
                 <input type="password" id="addUserPassword" placeholder="Enter password (min 6 chars)">
             </div>
             <div class="form-group">
-                <label for="addUserTasksUrl">Tasks Sheet URL <span style="font-weight:normal;color:#6b7280;">(optional)</span></label>
-                <input type="text" id="addUserTasksUrl" placeholder="https://docs.google.com/spreadsheets/...">
+                <label for="addUserCredit">Credit</label>
+                <input type="number" id="addUserCredit" placeholder="Enter credit amount" step="any">
+            </div>
+            <div class="form-group">
+                <label for="addUserNumber1">Number 1</label>
+                <input type="number" id="addUserNumber1" placeholder="Enter number 1" step="any">
+            </div>
+            <div class="form-group">
+                <label for="addUserNumber2">Number 2 <span style="font-weight:normal;color:#6b7280;">(optional)</span></label>
+                <input type="number" id="addUserNumber2" placeholder="Enter number 2" step="any">
             </div>
             <div id="addUserError" class="modal-error"></div>
             <div class="modal-actions">
                 <button id="addUserCancelBtn" class="btn btn-secondary">Cancel</button>
                 <button id="addUserOkBtn" class="btn btn-primary-small">Add User</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add User Success Modal -->
+    <div id="addUserSuccessModal" class="modal-overlay hidden">
+        <div class="modal-box add-user-success-box">
+            <h2>✅ User Created</h2>
+            <p class="add-user-success-msg">The user workbook has been created and the user has been added to the login sheet.</p>
+            <div class="add-user-workbook-info">
+                <div class="add-user-info-row">
+                    <span class="add-user-info-label">Workbook ID</span>
+                    <span id="addUserWorkbookId" class="add-user-info-value"></span>
+                </div>
+                <div class="add-user-info-row">
+                    <a id="addUserWorkbookLink" href="#" target="_blank" rel="noopener noreferrer" class="add-user-workbook-link">Open workbook ↗</a>
+                </div>
+            </div>
+            <div class="add-user-reminder">
+                <span class="add-user-reminder-icon">⚠️</span>
+                <span>Remember to add this Workbook ID to your <strong>Cloudflare APP_SHEET_ID</strong> authorised sheets variable.</span>
+            </div>
+            <div class="modal-actions">
+                <button id="addUserSuccessCloseBtn" class="btn btn-primary-small">Done</button>
             </div>
         </div>
     </div>
