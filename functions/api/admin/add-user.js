@@ -96,6 +96,23 @@ export async function onRequestPost({ request, env }) {
         // Request both Sheets and Drive scopes so we can create and share the
         // new workbook in the same token request.
         token = await getGoogleAccessToken(env, 'https://www.googleapis.com/auth/drive');
+        // DEBUG: verify what scopes Google issued for this token
+try {
+    const infoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(token)}`);
+    const infoText = await infoRes.text();
+    console.log('tokeninfo status:', infoRes.status);
+    console.log('tokeninfo body:', infoText);
+
+    // If it's JSON, pull scopes in a readable way:
+    try {
+        const info = JSON.parse(infoText);
+        console.log('tokeninfo scope:', info.scope);
+    } catch {
+        // tokeninfo sometimes returns non-JSON on errors; already logged above.
+    }
+} catch (e) {
+    console.warn('tokeninfo fetch failed:', String(e));
+}
     } catch {
         console.error('Failed to obtain Google access token');
         return errorResponse('Authentication service unavailable.', 503, cors);
