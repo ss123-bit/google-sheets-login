@@ -10,7 +10,9 @@
 // Steps performed:
 //   1. Validate the requesting user is an admin.
 //   2. Create a new Google Sheets workbook titled after the new username,
-//      using the Google Sheets API, with two sheets: "GENERAL" and "Settings".
+//      using the Google Drive API (mimeType application/vnd.google-apps.spreadsheet),
+//      then rename the default sheet to "GENERAL" and add a "Settings" sheet via
+//      the Sheets API batchUpdate.
 //      The workbook is NOT shared with anyone beyond the service account owner.
 //   3. Append a new row to the users sheet with columns:
 //        B: Username | C: PBKDF2 password hash | D: Workbook URL (full URL)
@@ -135,50 +137,102 @@ export async function onRequestPost({ request, env }) {
         return errorResponse('Server error.', 500, cors);
     }
 
-    // --- Create a new Google Sheets workbook for the user ---
+    // --- Create a new Google Sheets workbook for the user via Google Drive API ---
     // The workbook is titled after the username and pre-provisioned with two
     // sheets: "GENERAL" (the default working sheet) and "Settings".
     let newSpreadsheetId;
     try {
-        const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+        const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${token}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                properties: { title: username.trim() },
-                sheets: [
-                    { properties: { title: 'GENERAL', sheetId: 0 } },
-                    { properties: { title: 'Settings', sheetId: 1 } },
-                ],
+                name: username.trim(),
+                mimeType: 'application/vnd.google-apps.spreadsheet',
             }),
         });
-       if (!createRes.ok) {
-    const errText = await createRes.text();
+        if (!createRes.ok) {
+            const errText = await createRes.text();
 
-    let errJson = null;
-    try { errJson = JSON.parse(errText); } catch {}
+            let errJson = null;
+            try { errJson = JSON.parse(errText); } catch {}
 
-    console.error('Sheets API error creating workbook: status', createRes.status);
-    console.error('Sheets API error creating workbook: headers x-guploader-uploadid', createRes.headers.get('x-guploader-uploadid'));
-    console.error('Sheets API error creating workbook: body', errText);
+            console.error('Drive API error creating workbook: status', createRes.status);
+            console.error('Drive API error creating workbook: body', errText);
 
-    if (errJson?.error) {
-        console.error('Sheets API error creating workbook: message', errJson.error.message);
-        console.error('Sheets API error creating workbook: status', errJson.error.status);
-        console.error('Sheets API error creating workbook: code', errJson.error.code);
-        console.error('Sheets API error creating workbook: errors', JSON.stringify(errJson.error.errors || null));
-        console.error('Sheets API error creating workbook: details', JSON.stringify(errJson.error.details || null));
-    }
+            if (errJson?.error) {
+                console.error('Drive API error creating workbook: message', errJson.error.message);
+                console.error('Drive API error creating workbook: status', errJson.error.status);
+                console.error('Drive API error creating workbook: code', errJson.error.code);
+                console.error('Drive API error creating workbook: errors', JSON.stringify(errJson.error.errors || null));
+                console.error('Drive API error creating workbook: details', JSON.stringify(errJson.error.details || null));
+            }
 
-    return errorResponse('Failed to create user workbook.', 503, cors);
-}
+            return errorResponse('Failed to create user workbook.', 503, cors);
+        }
         const createData = await createRes.json();
-        newSpreadsheetId = createData.spreadsheetId;
+        newSpreadsheetId = createData.id;
     } catch {
         console.error('Network error creating workbook');
         return errorResponse('Failed to create user workbook.', 503, cors);
+    }
+
+    // --- Provision sheets: rename default sheet to "GENERAL" and add "Settings" ---
+    try {
+        // Fetch the new workbook's sheet metadata to obtain the default sheet's sheetId.
+        const metaRes = await fetch(
+            `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(newSpreadsheetId)}?fields=sheets.properties`,
+            { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!metaRes.ok) {
+            const metaErrText = await metaRes.text();
+            console.error('Sheets API error fetching new workbook metadata: status', metaRes.status);
+            console.error('Sheets API error fetching new workbook metadata: body', metaErrText);
+            return errorResponse('Failed to provision user workbook.', 503, cors);
+        }
+        const metaData = await metaRes.json();
+        if (!metaData.sheets?.[0]?.properties) {
+            console.error('Sheets API returned unexpected metadata structure for new workbook');
+            return errorResponse('Failed to provision user workbook.', 503, cors);
+        }
+        const defaultSheetId = metaData.sheets[0].properties.sheetId;
+
+        const batchRes = await fetch(
+            `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(newSpreadsheetId)}:batchUpdate`,
+            {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    requests: [
+                        {
+                            updateSheetProperties: {
+                                properties: { sheetId: defaultSheetId, title: 'GENERAL' },
+                                fields: 'title',
+                            },
+                        },
+                        {
+                            addSheet: {
+                                properties: { title: 'Settings' },
+                            },
+                        },
+                    ],
+                }),
+            },
+        );
+        if (!batchRes.ok) {
+            const batchErrText = await batchRes.text();
+            console.error('Sheets API error provisioning workbook sheets: status', batchRes.status);
+            console.error('Sheets API error provisioning workbook sheets: body', batchErrText);
+            return errorResponse('Failed to provision user workbook.', 503, cors);
+        }
+    } catch {
+        console.error('Network error provisioning workbook sheets');
+        return errorResponse('Failed to provision user workbook.', 503, cors);
     }
 
     // --- Append new user row ---
