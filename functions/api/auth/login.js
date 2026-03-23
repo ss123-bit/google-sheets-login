@@ -10,7 +10,7 @@
 //   APP_SHEET_ID        – spreadsheet ID that contains the users tab
 //                         (comma-separated if multiple IDs are allowed)
 //   APP_USERS_SHEET_RANGE – optional range of users data, defaults to Sheet1!B:H
-//                           Columns: Username | PasswordHash | TasksSheetUrl | (D) | (E) | (F) | Role
+//                           Columns: Username | PasswordHash | WorkbookURL | Credit | Number1 | Number2 | Role
 //                           Column H (index 6): set to "admin" to grant admin privileges
 //
 // Password column format:
