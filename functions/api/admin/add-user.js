@@ -95,7 +95,7 @@ export async function onRequestPost({ request, env }) {
     // --- Fetch users to verify requesting user is admin and check for duplicates ---
     let token;
     try {
-        token = await getGoogleAccessToken(env);
+        token = await getGoogleAccessToken(env, 'https://www.googleapis.com/auth/drive');
     } catch {
         console.error('Failed to obtain Google access token');
         return errorResponse('Authentication service unavailable.', 503, cors);
