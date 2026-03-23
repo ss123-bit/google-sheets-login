@@ -10,11 +10,11 @@
 // Steps performed:
 //   1. Validate the requesting user is an admin.
 //   2. Create a new Google Sheets workbook titled after the new username,
-//      with two sheets: "GENERAL" and "Settings".
-//   3. Share the workbook with the service account as editor (Drive API).
-//   4. Append a new row to the users sheet with columns:
-//        B: Username | C: PBKDF2 password hash | D: Credit
-//        E: Number 1  | F: Number 2 (optional)  | G: Workbook ID
+//      using the Google Sheets API, with two sheets: "GENERAL" and "Settings".
+//      The workbook is NOT shared with anyone beyond the service account owner.
+//   3. Append a new row to the users sheet with columns:
+//        B: Username | C: PBKDF2 password hash | D: Workbook URL (full URL)
+//        E: Credit   | F: Number 1              | G: Number 2 (optional)
 //      Column H (role) is left blank, making the new user a non-admin.
 //
 // Requires the same environment variables as login.js.
@@ -93,37 +93,7 @@ export async function onRequestPost({ request, env }) {
     // --- Fetch users to verify requesting user is admin and check for duplicates ---
     let token;
     try {
-        // Request both Sheets and Drive scopes so we can create and share the
-        // new workbook in the same token request.
-        token = await getGoogleAccessToken(env, 'https://www.googleapis.com/auth/drive');
-        // DEBUG: verify what scopes Google issued for this token
-try {
-    const infoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(token)}`);
-    const infoText = await infoRes.text();
-    console.log('tokeninfo status:', infoRes.status);
-    console.log('tokeninfo body:', infoText);
-
-    // If it's JSON, pull scopes in a readable way:
-    try {
-        const info = JSON.parse(infoText);
-        console.log('tokeninfo scope:', info.scope);
-    } catch {
-        // tokeninfo sometimes returns non-JSON on errors; already logged above.
-    }
-    try {
-        const driveAboutRes = await fetch(
-            'https://www.googleapis.com/drive/v3/about?fields=user',
-            { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const driveAboutText = await driveAboutRes.text();
-        console.log('drive about status:', driveAboutRes.status);
-        console.log('drive about body:', driveAboutText);
-    } catch (e) {
-        console.warn('drive about failed:', String(e));
-    }
-} catch (e) {
-    console.warn('tokeninfo fetch failed:', String(e));
-}
+        token = await getGoogleAccessToken(env);
     } catch {
         console.error('Failed to obtain Google access token');
         return errorResponse('Authentication service unavailable.', 503, cors);
@@ -211,39 +181,11 @@ try {
         return errorResponse('Failed to create user workbook.', 503, cors);
     }
 
-    // --- Share the new workbook with the service account as editor ---
-    // This makes the service account's access explicit and visible in the
-    // sharing settings, even though the service account is already the owner.
-    const serviceAccountEmail = env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    if (serviceAccountEmail) {
-        try {
-            const shareRes = await fetch(
-                `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(newSpreadsheetId)}/permissions`,
-                {
-                    method: 'POST',
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        role: 'writer',
-                        type: 'user',
-                        emailAddress: serviceAccountEmail,
-                    }),
-                },
-            );
-            if (!shareRes.ok) {
-                // Non-fatal: log but continue – the SA already owns the file.
-                console.warn('Drive API warning sharing workbook with service account');
-            }
-        } catch {
-            console.warn('Network warning sharing workbook with service account');
-        }
-    }
-
     // --- Append new user row ---
-    // Columns B–G: Username, Password, Credit, Number 1, Number 2, Workbook ID.
+    // Columns B–G: Username, PasswordHash, Workbook URL, Credit, Number 1, Number 2.
+    // Column D (Workbook URL) is returned to the client as tasksSheetUrl after login.
     // Column H (role) is intentionally left blank (non-admin by default).
+    const workbookUrl = `https://docs.google.com/spreadsheets/d/${newSpreadsheetId}`;
     const sheetNameMatch = usersRange.match(/^(.+?)!/);
     const sheetName = sheetNameMatch ? sheetNameMatch[1] : 'Sheet1';
     const appendRange = `${sheetName}!B:G`;
@@ -251,10 +193,10 @@ try {
     const newRow = [
         sanitizeValue(username.trim()),
         passwordHash,
+        workbookUrl,
         sanitizeValue(String(credit).trim()),
         sanitizeValue(String(number1).trim()),
         sanitizeValue(String(number2 || '').trim()),
-        newSpreadsheetId,
     ];
 
     try {
@@ -279,6 +221,6 @@ try {
     return jsonResponse({
         success: true,
         workbookId: newSpreadsheetId,
-        workbookUrl: `https://docs.google.com/spreadsheets/d/${newSpreadsheetId}`,
+        workbookUrl,
     }, 200, cors);
 }
