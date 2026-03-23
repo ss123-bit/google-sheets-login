@@ -184,11 +184,26 @@ try {
                 ],
             }),
         });
-        if (!createRes.ok) {
-            const errText = await createRes.text();
-            console.error('Sheets API error creating workbook:', errText);
-            return errorResponse('Failed to create user workbook.', 503, cors);
-        }
+       if (!createRes.ok) {
+    const errText = await createRes.text();
+
+    let errJson = null;
+    try { errJson = JSON.parse(errText); } catch {}
+
+    console.error('Sheets API error creating workbook: status', createRes.status);
+    console.error('Sheets API error creating workbook: headers x-guploader-uploadid', createRes.headers.get('x-guploader-uploadid'));
+    console.error('Sheets API error creating workbook: body', errText);
+
+    if (errJson?.error) {
+        console.error('Sheets API error creating workbook: message', errJson.error.message);
+        console.error('Sheets API error creating workbook: status', errJson.error.status);
+        console.error('Sheets API error creating workbook: code', errJson.error.code);
+        console.error('Sheets API error creating workbook: errors', JSON.stringify(errJson.error.errors || null));
+        console.error('Sheets API error creating workbook: details', JSON.stringify(errJson.error.details || null));
+    }
+
+    return errorResponse('Failed to create user workbook.', 503, cors);
+}
         const createData = await createRes.json();
         newSpreadsheetId = createData.spreadsheetId;
     } catch {
