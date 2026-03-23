@@ -110,6 +110,17 @@ try {
     } catch {
         // tokeninfo sometimes returns non-JSON on errors; already logged above.
     }
+    try {
+        const driveAboutRes = await fetch(
+            'https://www.googleapis.com/drive/v3/about?fields=user',
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const driveAboutText = await driveAboutRes.text();
+        console.log('drive about status:', driveAboutRes.status);
+        console.log('drive about body:', driveAboutText);
+    } catch (e) {
+        console.warn('drive about failed:', String(e));
+    }
 } catch (e) {
     console.warn('tokeninfo fetch failed:', String(e));
 }
