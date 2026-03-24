@@ -469,7 +469,7 @@ async function handleLogin(e) {
         sessionStorage.setItem(SESSION_TOKEN_KEY, data.token);
 
         // Proceed to the tasks page
-        await loginSuccess(username, data.tasksSheetUrl, data.isAdmin === true);
+        await loginSuccess(username, data.tasksSheetUrl, data.isAdmin === true, parseFloat(data.credit) || 0);
     } catch {
         showError('Unable to connect to the server. Please try again.');
     } finally {
@@ -478,7 +478,7 @@ async function handleLogin(e) {
 }
 
 // Login successful
-async function loginSuccess(username, tasksSheetUrl, isAdmin = false) {
+async function loginSuccess(username, tasksSheetUrl, isAdmin = false, credit = 0) {
     // Update welcome message
     welcomeUsername.textContent = username;
     currentUsername = username;
@@ -488,6 +488,14 @@ async function loginSuccess(username, tasksSheetUrl, isAdmin = false) {
         adminBtn.classList.remove('hidden');
     } else {
         adminBtn.classList.add('hidden');
+    }
+
+    // Show low-balance warning if credit is below 25
+    const lowBalanceWarning = document.getElementById('lowBalanceWarning');
+    if (credit < 25) {
+        lowBalanceWarning.classList.remove('hidden');
+    } else {
+        lowBalanceWarning.classList.add('hidden');
     }
 
     // Switch pages first so tabs/tasks are visible when loaded
