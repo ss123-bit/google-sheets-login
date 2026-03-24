@@ -1,0 +1,203 @@
+:root{
+  --bg:#f6f7fb;
+  --card:#ffffff;
+  --text:#121826;
+  --muted:#4b5565;
+  --border: rgba(18,24,38,.10);
+  --accent:#2f6bff;
+  --accent2:#2aa7ff;
+  --danger:#b42318;
+  --radius:20px;
+  --radius-sm:14px;
+  --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:var(--font);
+  color:var(--text);
+  background:
+    radial-gradient(900px 500px at 15% 5%, rgba(47,107,255,.18), transparent 60%),
+    radial-gradient(900px 500px at 85% 20%, rgba(255,204,102,.18), transparent 55%),
+    linear-gradient(180deg, #ffffff, var(--bg));
+}
+
+.page{display:none}
+.page.active{display:block}
+.container{width:min(1100px, 92vw); margin:0 auto; padding:34px 0 110px}
+
+/* Card styling */
+.login-box, .tasks-container, .modal-box{
+  background: var(--card);
+  border:1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 30px 110px rgba(18,24,38,.12);
+}
+.login-box{
+  width:min(460px, 100%);
+  margin:7vh auto 0;
+  padding:24px;
+}
+.login-box h1{margin:0 0 6px; font-size:28px; letter-spacing:-.4px}
+.subtitle{margin:0 0 18px; color:var(--muted); line-height:1.55}
+
+/* Forms */
+.form-group{margin:14px 0}
+label{display:block; margin:0 0 6px; font-size:12px; color:var(--muted)}
+input, select{
+  width:100%;
+  padding:12px 12px;
+  border-radius: var(--radius-sm);
+  border:1px solid rgba(18,24,38,.14);
+  outline:none;
+  font-size:14px;
+  background:#fff;
+}
+input:focus, select:focus{
+  border-color: rgba(47,107,255,.55);
+  box-shadow: 0 0 0 4px rgba(47,107,255,.14);
+}
+
+/* Buttons */
+.btn{
+  border:1px solid rgba(18,24,38,.14);
+  background:#fff;
+  color:var(--text);
+  padding:12px 14px;
+  border-radius: var(--radius-sm);
+  cursor:pointer;
+  font-weight:800;
+  transition:.15s ease;
+}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{
+  border:0;
+  color:#fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  box-shadow: 0 20px 60px rgba(47,107,255,.25);
+}
+.btn-primary-small{
+  border:0;
+  color:#fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  padding:10px 12px;
+}
+.btn-secondary{background:#fff}
+.btn-delete-confirm{
+  background: rgba(180,35,24,.06);
+  border-color: rgba(180,35,24,.25);
+  color:#7a1b12;
+}
+
+/* Tasks */
+.tasks-container{overflow:hidden}
+.header{
+  padding:18px;
+  display:flex; justify-content:space-between; align-items:center; gap:12px;
+  border-bottom:1px solid rgba(18,24,38,.08);
+}
+.header h1{margin:0; font-size:18px}
+.tasks-content{padding:18px}
+.tasks-content h2{
+  margin:0 0 12px;
+  font-size:12px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+/* Tabs */
+.sheet-tabs-wrapper{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:8px;
+  align-items:center;
+  margin-bottom:12px;
+}
+.scroll-tab-btn{
+  width:40px;height:40px;
+  border-radius: 14px;
+  border:1px solid rgba(18,24,38,.14);
+  background:#fff;
+  cursor:pointer;
+}
+.sheet-tabs{
+  display:flex;
+  gap:8px;
+  overflow:auto;
+  padding:4px;
+}
+.sheet-tabs button{
+  padding:9px 11px;
+  border-radius:999px;
+  border:1px solid rgba(18,24,38,.14);
+  background:#fff;
+  cursor:pointer;
+}
+.sheet-tabs button.active{
+  border-color: rgba(47,107,255,.55);
+  box-shadow: 0 0 0 4px rgba(47,107,255,.14);
+}
+
+/* Tasks list */
+.tasks-list{display:grid; gap:10px}
+.tasks-list > div{
+  border:1px solid rgba(18,24,38,.10);
+  background:#fff;
+  border-radius: 16px;
+  padding:12px;
+}
+.no-tasks{
+  margin-top:10px;
+  padding:12px;
+  border:1px dashed rgba(18,24,38,.22);
+  border-radius: 16px;
+  color:var(--muted);
+}
+
+/* Footer bar */
+.tasks-footer{
+  position:fixed; left:0; right:0; bottom:0;
+  padding:12px 14px;
+  display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+  background: rgba(246,247,251,.86);
+  border-top:1px solid rgba(18,24,38,.10);
+  backdrop-filter: blur(12px);
+}
+
+.hidden{display:none !important}
+.modal-overlay{
+  position:fixed; inset:0;
+  display:grid; place-items:center; padding:22px;
+  background: rgba(18,24,38,.35);
+}
+.modal-box{width:min(560px, 100%); padding:18px}
+.modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:14px}
+.modal-error,.error-message{margin-top:10px; color:var(--danger); font-size:13px}
+
+/* Spinner */
+.spinner{
+  width:22px;height:22px;border-radius:99px;
+  border:3px solid rgba(18,24,38,.14);
+  border-top-color: rgba(47,107,255,.9);
+  margin:12px auto 0;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* A few optional niceties for modal content */
+.confirm-delete-msg{color:var(--muted); line-height:1.5}
+.settings-menu-actions{display:grid; gap:10px}
+.settings-menu-btn{width:100%}
+.add-user-success-box h2{margin-bottom:8px}
+.add-user-success-msg{margin:0 0 10px; color:var(--muted)}
+.add-user-workbook-info{border:1px solid rgba(18,24,38,.10); border-radius:14px; padding:12px; background:#fff}
+.add-user-info-row{display:flex; justify-content:space-between; gap:10px; margin:6px 0}
+.add-user-info-label{color:var(--muted); font-size:12px}
+.add-user-info-value{font-weight:800}
+.add-user-workbook-link{display:inline-block; margin-top:8px; color:var(--accent); text-decoration:none; font-weight:800}
+.add-user-workbook-link:hover{text-decoration:underline}
+.add-user-reminder{margin-top:12px; padding:12px; border-radius:14px; background: rgba(47,107,255,.06); border:1px solid rgba(47,107,255,.14)}
+.add-user-reminder-icon{margin-right:6px}
