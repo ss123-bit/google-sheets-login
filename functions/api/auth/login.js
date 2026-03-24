@@ -148,6 +148,7 @@ export async function onRequestPost({ request, env }) {
 
     const storedPassword = userRow[1] || '';
     const tasksSheetUrl = userRow[2] || '';
+    const credit = parseFloat(userRow[3]) || 0;
     // Column H (index 6 from range start B) holds the user role.
     const role = (userRow[6] || '').trim().toLowerCase();
     const isAdmin = role === 'admin';
@@ -171,5 +172,5 @@ export async function onRequestPost({ request, env }) {
         return errorResponse('Authentication service unavailable.', 503, cors);
     }
 
-    return jsonResponse({ token: sessionToken, tasksSheetUrl, isAdmin }, 200, cors);
+    return jsonResponse({ token: sessionToken, tasksSheetUrl, isAdmin, credit }, 200, cors);
 }
