@@ -331,11 +331,11 @@ export async function onRequestPost({ request, env }) {
         }
 
         // Decrement credit and return – no message is stored in a sheet for ?-queries.
-        // When a reply was sent: cost is 5 credits per 160-character segment (minimum 5).
+        // When a reply was sent: cost is 6 credits per 160-character segment (minimum 6).
         // When no reply was sent (no matching category or empty column C): cost is 1.
         const sheetRowNum = matchedRowIndex + 1;
         const creditCellRange = `${sheetName}!E${sheetRowNum}`;
-        const cost = sentReplyText ? Math.ceil(sentReplyText.length / 160) * 5 : 1;
+        const cost = sentReplyText ? Math.ceil(sentReplyText.length / 160) * 6 : 1;
         const newCredit = credit - cost;
         try {
             const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(usersSheetId)}/values/${encodeURIComponent(creditCellRange)}?valueInputOption=RAW`;
