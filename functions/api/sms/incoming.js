@@ -36,7 +36,7 @@
 //   3. Extract the user's spreadsheet ID from the column D URL.
 //   4. Read the "Settings" sheet of that spreadsheet (columns A:C).
 //   5. If the SMS body starts with "?":
-//        – Extract the word immediately following "?" (case-insensitive).
+//        – Extract the word immediately following "?" (case-insensitive; a space after "?" is allowed).
 //        – Search column A of Settings for a matching category (case-insensitive).
 //        – If a match is found, send an outbound SMS to the sender with the text
 //          from column C of that Settings row (requires TWILIO_ACCOUNT_SID,
@@ -307,9 +307,9 @@ export async function onRequestPost({ request, env }) {
     const remainder = spaceIndex >= 0 ? normalizedBody.slice(spaceIndex + 1).trim() : '';
 
     // --- Handle ?-query: SMS starting with "?" triggers an outbound SMS reply ---
-    // Format: ?<category> – e.g. "?MENU" or "?menu"
+    // Format: ?<category> – e.g. "?MENU", "?menu", or "? MENU" (space after "?" is allowed)
     if (normalizedBody.startsWith('?')) {
-        const queryWord = normalizedBody.slice(1).split(' ')[0].trim().toLowerCase();
+        const queryWord = normalizedBody.slice(1).trim().split(' ')[0].toLowerCase();
         if (!queryWord) {
             // Bare "?" with no category word – ignore silently.
             return twimlResponse();
