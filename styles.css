@@ -715,6 +715,80 @@ body {
     margin-top: 1px;
 }
 
+/* User Credit List Modal */
+.user-credit-list-box {
+    max-width: 480px;
+}
+
+.user-credit-list {
+    max-height: 320px;
+    overflow-y: auto;
+    margin-bottom: 8px;
+}
+
+.user-credit-loading {
+    color: var(--text-light);
+    font-size: 14px;
+    padding: 12px 0;
+}
+
+.user-credit-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.user-credit-row:last-child {
+    border-bottom: none;
+}
+
+.user-credit-name {
+    flex: 1;
+    font-size: 14px;
+    color: var(--text-dark);
+    font-weight: 500;
+    word-break: break-all;
+}
+
+.user-credit-value {
+    font-size: 14px;
+    color: var(--primary-color);
+    font-weight: 600;
+    min-width: 48px;
+    text-align: right;
+}
+
+.btn-add-credit {
+    flex-shrink: 0;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: var(--white);
+    border: none;
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.btn-add-credit:hover {
+    opacity: 0.85;
+    transform: translateY(-1px);
+}
+
+/* Add Credit Modal */
+.add-credit-for-user {
+    font-size: 14px;
+    color: var(--text-light);
+    margin-bottom: 16px;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     .login-box {

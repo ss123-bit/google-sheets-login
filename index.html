@@ -223,9 +223,39 @@
             <h2>Admin</h2>
             <div class="settings-menu-actions">
                 <button id="adminAddUserBtn" class="btn btn-primary-small settings-menu-btn">Add User</button>
+                <button id="adminCheckAddCreditBtn" class="btn btn-primary-small settings-menu-btn">Check/Add Credit</button>
             </div>
             <div class="modal-actions">
                 <button id="adminMenuCancelBtn" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Credit List Modal -->
+    <div id="userCreditListModal" class="modal-overlay hidden">
+        <div class="modal-box user-credit-list-box">
+            <h2>Check/Add Credit</h2>
+            <div id="userCreditListContent" class="user-credit-list"></div>
+            <div id="userCreditListError" class="modal-error"></div>
+            <div class="modal-actions">
+                <button id="userCreditListCloseBtn" class="btn btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Credit Modal -->
+    <div id="addCreditModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h2>Add Credit</h2>
+            <p id="addCreditUsername" class="add-credit-for-user"></p>
+            <div class="form-group">
+                <label for="addCreditAmount">Amount to Add</label>
+                <input type="number" id="addCreditAmount" placeholder="Enter amount" step="any">
+            </div>
+            <div id="addCreditError" class="modal-error"></div>
+            <div class="modal-actions">
+                <button id="addCreditCancelBtn" class="btn btn-secondary">Cancel</button>
+                <button id="addCreditOkBtn" class="btn btn-primary-small">Add</button>
             </div>
         </div>
     </div>

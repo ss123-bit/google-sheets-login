@@ -146,6 +146,36 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('addUserSuccessModal').classList.add('hidden');
         }
     });
+
+    // Check/Add Credit button in admin menu
+    document.getElementById('adminCheckAddCreditBtn').addEventListener('click', () => {
+        document.getElementById('adminMenuModal').classList.add('hidden');
+        handleAdminCheckAddCreditClick();
+    });
+
+    // User Credit List modal
+    document.getElementById('userCreditListCloseBtn').addEventListener('click', () => {
+        document.getElementById('userCreditListModal').classList.add('hidden');
+    });
+    document.getElementById('userCreditListModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('userCreditListModal')) {
+            document.getElementById('userCreditListModal').classList.add('hidden');
+        }
+    });
+
+    // Add Credit modal
+    document.getElementById('addCreditCancelBtn').addEventListener('click', () => {
+        document.getElementById('addCreditModal').classList.add('hidden');
+    });
+    document.getElementById('addCreditModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('addCreditModal')) {
+            document.getElementById('addCreditModal').classList.add('hidden');
+        }
+    });
+    document.getElementById('addCreditOkBtn').addEventListener('click', handleAddCreditOk);
+    document.getElementById('addCreditAmount').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); handleAddCreditOk(); }
+    });
 });
 
 // [NEW FUNCTION] Load all sheet names from a tasks workbook
@@ -591,6 +621,133 @@ async function handleAddUserOk() {
     } catch {
         addUserError.textContent = 'Unable to connect to the server. Please try again.';
         addUserOkBtn.disabled = false;
+    }
+}
+
+// Fetch and display all users with their credit (admin only)
+async function handleAdminCheckAddCreditClick() {
+    const modal = document.getElementById('userCreditListModal');
+    const content = document.getElementById('userCreditListContent');
+    const errorEl = document.getElementById('userCreditListError');
+
+    content.innerHTML = '<p class="user-credit-loading">Loading...</p>';
+    errorEl.textContent = '';
+    modal.classList.remove('hidden');
+
+    try {
+        const response = await fetch('/api/admin/list-users', {
+            headers: getAuthHeaders(),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            content.innerHTML = '';
+            errorEl.textContent = data.error || 'Failed to load user list.';
+            return;
+        }
+
+        const users = data.users || [];
+        content.innerHTML = '';
+
+        if (users.length === 0) {
+            content.innerHTML = '<p class="user-credit-loading">No users found.</p>';
+            return;
+        }
+
+        users.forEach(({ username, credit }) => {
+            const row = document.createElement('div');
+            row.className = 'user-credit-row';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'user-credit-name';
+            nameSpan.textContent = username;
+
+            const creditSpan = document.createElement('span');
+            creditSpan.className = 'user-credit-value';
+            creditSpan.textContent = credit !== '' ? Number(credit) : '0';
+            creditSpan.dataset.username = username;
+
+            const addBtn = document.createElement('button');
+            addBtn.className = 'btn-add-credit';
+            addBtn.textContent = '+';
+            addBtn.title = `Add credit to ${username}`;
+            addBtn.addEventListener('click', () => openAddCreditModal(username));
+
+            row.appendChild(nameSpan);
+            row.appendChild(creditSpan);
+            row.appendChild(addBtn);
+            content.appendChild(row);
+        });
+    } catch {
+        content.innerHTML = '';
+        errorEl.textContent = 'Unable to connect to the server. Please try again.';
+    }
+}
+
+// State for the add-credit modal
+let addCreditTargetUsername = '';
+
+// Open the add-credit modal for a specific user
+function openAddCreditModal(username) {
+    addCreditTargetUsername = username;
+    document.getElementById('addCreditUsername').textContent = `Adding credit for: ${username}`;
+    document.getElementById('addCreditAmount').value = '';
+    document.getElementById('addCreditError').textContent = '';
+    document.getElementById('addCreditOkBtn').disabled = false;
+    document.getElementById('addCreditModal').classList.remove('hidden');
+    document.getElementById('addCreditAmount').focus();
+}
+
+// Submit the add-credit form
+async function handleAddCreditOk() {
+    const amountRaw = document.getElementById('addCreditAmount').value.trim();
+    const errorEl = document.getElementById('addCreditError');
+    const okBtn = document.getElementById('addCreditOkBtn');
+
+    errorEl.textContent = '';
+
+    if (amountRaw === '') {
+        errorEl.textContent = 'Please enter an amount.';
+        document.getElementById('addCreditAmount').focus();
+        return;
+    }
+    const amount = Number(amountRaw);
+    if (Number.isNaN(amount)) {
+        errorEl.textContent = 'Amount must be a valid number.';
+        document.getElementById('addCreditAmount').focus();
+        return;
+    }
+
+    okBtn.disabled = true;
+
+    try {
+        const response = await fetch('/api/admin/add-credit', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ username: addCreditTargetUsername, amount }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            errorEl.textContent = data.error || 'Failed to add credit.';
+            okBtn.disabled = false;
+            return;
+        }
+
+        document.getElementById('addCreditModal').classList.add('hidden');
+
+        // Update the credit value displayed in the user credit list.
+        const creditSpan = document.querySelector(
+            `#userCreditListContent .user-credit-value[data-username="${CSS.escape(addCreditTargetUsername)}"]`
+        );
+        if (creditSpan) {
+            creditSpan.textContent = data.newCredit !== undefined ? data.newCredit : '0';
+        }
+    } catch {
+        errorEl.textContent = 'Unable to connect to the server. Please try again.';
+        okBtn.disabled = false;
     }
 }
 
