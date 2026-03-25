@@ -65,6 +65,8 @@ In the Cloudflare dashboard, open your Pages project → **Settings → Environm
 | `APP_USERS_SHEET_RANGE` | Optional | The A1 range containing the users table (default: `Sheet1!B:G`). Columns: Username \| PasswordHash \| TasksSheetUrl \| Credit \| Phone1 \| Phone2 |
 | `APP_USERS_SHEET_ID` | Optional | Spreadsheet ID containing the users table. Defaults to the first ID in `APP_SHEET_ID`. Set this if your users table is in a separate spreadsheet from the tasks sheets. |
 | `TWILIO_AUTH_TOKEN` | Recommended | Twilio account auth token. When set, the SMS webhook validates every inbound request using the `X-Twilio-Signature` header to reject spoofed requests. |
+| `TWILIO_ACCOUNT_SID` | Optional | Twilio account SID. Required when using the `?`-query feature to send outbound SMS replies. |
+| `TWILIO_FROM_NUMBER` | Optional | E.164 Twilio phone number (e.g. `+14155550123`) used as the sender for outbound SMS replies. Required when using the `?`-query feature. |
 
 > **Important:** `APP_AUTH_SECRET` and `APP_SHEET_ID` are **required**. The application will deny all API requests if either is missing.
 
@@ -133,27 +135,38 @@ POST https://your-project.pages.dev/api/sms/incoming
 | F | Primary phone number (E.164, e.g. `+14155552671`) |
 | G | Secondary/alternate phone number |
 
-**User's personal spreadsheet – `Settings` sheet layout (columns A–B)**
+**User's personal spreadsheet – `Settings` sheet layout (columns A–C)**
 
 | Column | Content |
 |--------|---------|
-| A | Sheet name to route matching messages to |
-| B | Keyword (first word of SMS to match, case-insensitive) |
+| A | Category name (sheet name to route matching messages to; also used as the `?`-query keyword) |
+| B | Keyword (first word of a non-`?` SMS to match, case-insensitive) |
+| C | Reply text sent back via SMS when a `?`-query matches this category |
 
 **Processing logic**
 
 1. Twilio calls the webhook with the sender's number (`From`) and message text (`Body`).
 2. The sender's phone number is looked up in columns F and G of the users sheet.
 3. If no match, or if the user's credit (column E) is ≤ 0, the request is silently ignored.
-4. The user's personal spreadsheet (URL in column D) is opened and the `Settings` sheet is read.
-5. The first word of the SMS is compared (case-insensitively) against every value in column B of `Settings`.
+4. The user's personal spreadsheet (URL in column D) is opened and the `Settings` sheet is read (columns A–C).
+5. **If the SMS starts with `?`** (e.g. `?MENU` or `?menu`):
+   - The word immediately after `?` is matched (case-insensitively) against column A of `Settings`.
+   - If a match is found, an outbound SMS is sent to the sender containing the text from column C of that row.
+   - If no match is found, the request is silently ignored (no reply is sent).
+   - A bare `?` with no following word is silently ignored and no credit is consumed.
+   - Otherwise, the user's credit is decremented by 1 and processing ends (no data is written to any sheet).
+6. Otherwise, the first word of the SMS is compared (case-insensitively) against every value in column B of `Settings`.
    - **Match found:** the remainder of the SMS (everything after the first word) is appended to the next empty cell in column A of the sheet named in column A of the matching Settings row.
    - **No match:** the full SMS text is appended to the next empty cell in column A of a sheet named `GENERAL`.
-6. The user's credit in column E is decremented by 1.
+7. The user's credit in column E is decremented by 1.
 
 **Twilio signature verification**
 
 Set `TWILIO_AUTH_TOKEN` to your Twilio account auth token.  When set, every inbound webhook request is validated against the `X-Twilio-Signature` header.  Requests with a missing or invalid signature are rejected with HTTP 403.  It is strongly recommended to set this variable in production.
+
+**Outbound SMS replies (`?`-query feature)**
+
+To enable outbound SMS replies, set all three of `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` in your Cloudflare environment variables.  The `TWILIO_FROM_NUMBER` must be an E.164-formatted Twilio number that belongs to your account (e.g. `+14155550123`).  When any of these variables is missing the reply is silently skipped and an error is logged.
 
 ---
 
