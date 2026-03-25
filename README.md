@@ -154,7 +154,7 @@ POST https://your-project.pages.dev/api/sms/incoming
    - If a match is found, an outbound SMS is sent to the sender containing the text from column C of that row.
    - If no match is found, the request is silently ignored (no reply is sent).
    - A bare `?` with no following word is silently ignored and no credit is consumed.
-   - Otherwise, the user's credit is decremented by 1 and processing ends (no data is written to any sheet).
+   - Otherwise, the user's credit is decremented by 5 per 160-character segment of the outgoing reply (minimum 5) and processing ends (no data is written to any sheet).  For example, a reply of 330 characters costs 15 credits (`ceil(330/160) × 5 = 3 × 5`).
 6. Otherwise, the first word of the SMS is compared (case-insensitively) against every value in column B of `Settings`.
    - **Match found:** the remainder of the SMS (everything after the first word) is appended to the next empty cell in column A of the sheet named in column A of the matching Settings row.
    - **No match:** the full SMS text is appended to the next empty cell in column A of a sheet named `GENERAL`.
