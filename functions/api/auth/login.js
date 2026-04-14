@@ -148,6 +148,12 @@ try {
     console.error('Network error fetching users from Sheets');
     return errorResponse('Authentication service unavailable.', 503, cors);
 }
+    const data = await res.json();
+    rows = data.values || [];
+} catch {
+    console.error('Network error fetching users from Sheets');
+    return errorResponse('Authentication service unavailable.', 503, cors);
+}
         const data = await res.json();
         rows = data.values || [];
     } catch {
