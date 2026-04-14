@@ -136,8 +136,6 @@ try {
     console.error('Network error fetching users');
     return errorResponse('Service unavailable.', 503, cors);
 }
-        const data = await res.json();
-        rows = data.values || []; 
 
     // --- Find user (skip header row) ---
     const userRow = rows.slice(1).find((r) => (r[0] || '').trim() === username.trim());
