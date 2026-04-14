@@ -140,11 +140,7 @@ try {
     throw new Error('Failed to fetch users from Google Sheets');
 }   
         const data = await res.json();
-        rows = data.values || [];
-    } catch {
-        console.error('Network error fetching users from Sheets');
-        return errorResponse('Authentication service unavailable.', 503, cors);
-    }
+        rows = data.values || []; 
 
     // --- Find user (skip header row) ---
     const userRow = rows.slice(1).find((r) => (r[0] || '').trim() === username.trim());
