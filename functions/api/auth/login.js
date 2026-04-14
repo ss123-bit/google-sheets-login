@@ -123,13 +123,26 @@ export async function onRequestPost({ request, env }) {
     }
 
     let rows;
-    try {
-        const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(usersSheetId)}/values/${encodeURIComponent(usersRange)}`;
-        const res = await fetch(apiUrl, { headers: { Authorization: `Bearer ${token}` } });
-        if (!res.ok) {
-            console.error('Sheets API error fetching users');
-            return errorResponse('Authentication service unavailable.', 503, cors);
-        }
+   // Around line 126-132, update the error handling to:
+try {
+    const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(usersSheetId)}/values/${encodeURIComponent(usersRange)}`;
+    const res = await fetch(apiUrl, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) {
+        const errText = await res.text();
+        console.error('Sheets API error fetching users', {
+            status: res.status,
+            statusText: res.statusText,
+            body: errText,
+            url: apiUrl,
+        });
+        return errorResponse('Authentication service unavailable.', 503, cors);
+    }
+    const data = await res.json();
+    rows = data.values || [];
+} catch {
+    console.error('Network error fetching users from Sheets');
+    return errorResponse('Authentication service unavailable.', 503, cors);
+}
         const data = await res.json();
         rows = data.values || [];
     } catch {
