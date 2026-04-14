@@ -124,23 +124,20 @@ export async function onRequestPost({ request, env }) {
 
   let rows;
 try {
-    const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(usersSheetId)}/values/${encodeURIComponent(usersRange)}`;
-    const res = await fetch(apiUrl, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) {
-        const errText = await res.text();
-        console.error('Sheets API error fetching users', {
-            status: res.status,
-            statusText: res.statusText,
-            body: errText,
-            url: apiUrl,
-        });
-        return errorResponse('Authentication service unavailable.', 503, cors);
+    const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets/YOUR_SHEET_ID/values/Sheet1!A2:E?key=YOUR_API_KEY');
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const data = await res.json();
-    rows = data.values || [];
-} catch {
-    console.error('Network error fetching users from Sheets');
-    return errorResponse('Authentication service unavailable.', 503, cors);
+    const data = await response.json();
+    return data.values.map(row => ({
+        id: row[0],
+        name: row[1],
+        email: row[2],
+        role: row[3],
+    }));
+} catch (error) {
+    console.error('Error fetching users from Google Sheets:', error);
+    throw new Error('Failed to fetch users from Google Sheets');
 }
     const data = await res.json();
     rows = data.values || [];
