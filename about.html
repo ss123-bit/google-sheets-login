@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Textable</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .about-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 20px;
+            min-height: 100vh;
+        }
+
+        .about-header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .about-header h1 {
+            font-size: 48px;
+            margin-bottom: 16px;
+            color: var(--white);
+        }
+
+        .about-header p {
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .about-content {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: var(--shadow);
+        }
+
+        .about-section {
+            margin-bottom: 40px;
+        }
+
+        .about-section h2 {
+            font-size: 24px;
+            color: var(--primary-color);
+            margin-bottom: 16px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        .about-section p {
+            color: var(--text-dark);
+            line-height: 1.8;
+            margin-bottom: 12px;
+            font-size: 15px;
+        }
+
+        .features-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+            margin-top: 20px;
+        }
+
+        .feature-item {
+            background: var(--light-bg);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .feature-item h3 {
+            color: var(--primary-color);
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .feature-item p {
+            color: var(--text-light);
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .back-btn {
+            display: inline-block;
+            margin-bottom: 20px;
+            text-decoration: none;
+            color: rgba(255, 255, 255, 0.8);
+            transition: color 0.3s;
+        }
+
+        .back-btn:hover {
+            color: var(--white);
+        }
+
+        @media (max-width: 600px) {
+            .about-header h1 {
+                font-size: 32px;
+            }
+
+            .about-content {
+                padding: 24px;
+            }
+
+            .features-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="about-container">
+        <a href="javascript:history.back()" class="back-btn">← Back</a>
+        
+        <div class="about-header">
+            <h1>About Textable</h1>
+            <p>Your comprehensive task management solution</p>
+        </div>
+
+        <div class="about-content">
+            <!-- Introduction Section -->
+            <div class="about-section">
+                <h2>Welcome to Textable</h2>
+                <p>
+                    Textable is a powerful task management platform that seamlessly integrates with Google Sheets to help you organize, 
+                    track, and manage your tasks efficiently. Whether you're working solo or as part of a team, Textable provides 
+                    the tools you need to stay productive and on top of your workload.
+                </p>
+            </div>
+
+            <!-- Key Features Section -->
+            <div class="about-section">
+                <h2>Key Features</h2>
+                <div class="features-list">
+                    <div class="feature-item">
+                        <h3>🔒 Secure Login</h3>
+                        <p>Protected access with encrypted authentication ensures your data stays safe and secure.</p>
+                    </div>
+                    <div class="feature-item">
+                        <h3>📋 Task Organization</h3>
+                        <p>Organize tasks by categories and sheets for better project and workflow management.</p>
+                    </div>
+                    <div class="feature-item">
+                        <h3>⚡ Real-time Sync</h3>
+                        <p>Seamless integration with Google Sheets keeps your data synchronized across platforms.</p>
+                    </div>
+                    <div class="feature-item">
+                        <h3>💳 Credit System</h3>
+                        <p>Flexible credit-based usage model gives you control over your spending and resource allocation.</p>
+                    </div>
+                    <div class="feature-item">
+                        <h3>👨‍💼 Admin Controls</h3>
+                        <p>Manage users and credits with ease through our intuitive admin interface.</p>
+                    </div>
+                    <div class="feature-item">
+                        <h3>📱 Mobile Friendly</h3>
+                        <p>Access your tasks on any device with our responsive design that works on mobile and desktop.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Getting Started Section -->
+            <div class="about-section">
+                <h2>Getting Started</h2>
+                <p>
+                    Getting started with Textable is easy:
+                </p>
+                <ol style="color: var(--text-dark); line-height: 1.8; margin-left: 20px;">
+                    <li style="margin-bottom: 12px;"><strong>Create an Account:</strong> Sign up with your credentials to get instant access to your personal dashboard.</li>
+                    <li style="margin-bottom: 12px;"><strong>Set Up Categories:</strong> Organize your tasks by creating categories that match your workflow.</li>
+                    <li style="margin-bottom: 12px;"><strong>Add Tasks:</strong> Start adding tasks to your categories and assign notes for better context.</li>
+                    <li style="margin-bottom: 12px;"><strong>Manage Credits:</strong> Monitor your credit balance and top up when needed to continue using premium features.</li>
+                </ol>
+            </div>
+
+            <!-- Support Section -->
+            <div class="about-section">
+                <h2>Support & Contact</h2>
+                <p>
+                    Need help? Our support team is here to assist you. Contact us for account setup, billing inquiries, 
+                    or any other questions you might have about Textable.
+                </p>
+                <p style="margin-top: 20px; font-size: 14px; color: var(--text-light);">
+                    <strong>Email:</strong> support@textable.com<br>
+                    <strong>Website:</strong> https://ss123-bit.github.io/google-sheets-login/
+                </p>
+            </div>
+
+            <!-- Footer -->
+            <div class="about-section" style="border-top: 2px solid var(--border-color); padding-top: 30px; text-align: center;">
+                <p style="color: var(--text-light); font-size: 14px; margin: 0;">
+                    &copy; 2026 Textable. All rights reserved.
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
