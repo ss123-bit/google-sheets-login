@@ -46,7 +46,9 @@ const adminBtn = document.getElementById('adminBtn');
 let currentTasksSheetUrl = '';
 let currentSheetName = '';
 let currentUsername = '';
-
+// Auto-refresh state
+let refreshIntervalId = null;
+const REFRESH_INTERVAL = 150; // 15 minutes in milliseconds
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     loginForm.addEventListener('submit', handleLogin);
@@ -537,9 +539,36 @@ async function loginSuccess(username, tasksSheetUrl, isAdmin = false, credit = 0
     passwordInput.value = '';
 
     // Build sheet tabs and display tasks
-    await createSheetTabs(tasksSheetUrl);
+await createSheetTabs(tasksSheetUrl);
+
+// Start auto-refreshing tasks every 15 minutes
+startAutoRefresh();
+}
+// Auto-refresh tasks
+function startAutoRefresh() {
+    // Clear any existing interval first
+    if (refreshIntervalId) {
+        clearInterval(refreshIntervalId);
+    }
+    
+    // Set up the interval to refresh every 15 minutes
+    refreshIntervalId = setInterval(async () => {
+        try {
+            const tasks = await loadTasksFromSheet(currentTasksSheetUrl, currentSheetName);
+            displayTasks(tasks);
+            console.log('Tasks auto-refreshed at', new Date().toLocaleTimeString());
+        } catch (error) {
+            console.error('Error during auto-refresh:', error);
+        }
+    }, REFRESH_INTERVAL);
 }
 
+function stopAutoRefresh() {
+    if (refreshIntervalId) {
+        clearInterval(refreshIntervalId);
+        refreshIntervalId = null;
+    }
+}
 // Handle add user (admin only)
 async function handleAddUserOk() {
     const username = document.getElementById('addUserUsername').value.trim();
@@ -1018,6 +1047,7 @@ async function moveTask(rowIndex, direction) {
 
 // Handle logout
 function handleLogout() {
+    stopAutoRefresh();
     sessionStorage.removeItem(SESSION_TOKEN_KEY);
     currentUsername = '';
     adminBtn.classList.add('hidden');
