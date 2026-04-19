@@ -48,7 +48,7 @@ let currentSheetName = '';
 let currentUsername = '';
 // Auto-refresh state
 let refreshIntervalId = null;
-const REFRESH_INTERVAL = 150; // 15 minutes in milliseconds
+const REFRESH_INTERVAL = 1500; // 15 minutes in milliseconds
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     loginForm.addEventListener('submit', handleLogin);
