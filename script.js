@@ -48,6 +48,7 @@ let currentSheetName = '';
 let currentUsername = '';
 // Auto-refresh state
 let refreshIntervalId = null;
+let isAutoRefreshing = false;
 const REFRESH_INTERVAL = 150000; // 15 minutes in milliseconds
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
