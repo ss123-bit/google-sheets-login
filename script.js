@@ -549,16 +549,37 @@ function startAutoRefresh() {
     // Clear any existing interval first
     if (refreshIntervalId) {
         clearInterval(refreshIntervalId);
+        refreshIntervalId = null;
     }
     
-    // Set up the interval to refresh every 15 minutes
+    console.log('✓ Auto-refresh STARTED - will refresh every 15 minutes (150000ms)');
+    
+    let isRefreshing = false;
+    
     refreshIntervalId = setInterval(async () => {
+        // Prevent overlapping refreshes
+        if (isRefreshing) {
+            console.warn('⚠ Previous refresh still in progress, skipping this cycle');
+            return;
+        }
+        
+        if (!currentTasksSheetUrl || !currentSheetName) {
+            console.warn('⚠ No sheet data available, skipping refresh');
+            return;
+        }
+        
+        isRefreshing = true;
+        const refreshTime = new Date().toLocaleTimeString();
+        console.log(`🔄 Auto-refresh triggered at ${refreshTime}`);
+        
         try {
             const tasks = await loadTasksFromSheet(currentTasksSheetUrl, currentSheetName);
             displayTasks(tasks);
-            console.log('Tasks auto-refreshed at', new Date().toLocaleTimeString());
+            console.log(`✓ Tasks auto-refreshed successfully at ${refreshTime}`);
         } catch (error) {
-            console.error('Error during auto-refresh:', error);
+            console.error('❌ Error during auto-refresh:', error);
+        } finally {
+            isRefreshing = false;
         }
     }, REFRESH_INTERVAL);
 }
@@ -567,9 +588,9 @@ function stopAutoRefresh() {
     if (refreshIntervalId) {
         clearInterval(refreshIntervalId);
         refreshIntervalId = null;
+        console.log('⏹ Auto-refresh STOPPED');
     }
-}
-// Handle add user (admin only)
+}// Handle add user (admin only)
 async function handleAddUserOk() {
     const username = document.getElementById('addUserUsername').value.trim();
     const password = document.getElementById('addUserPassword').value;
