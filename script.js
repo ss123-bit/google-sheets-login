@@ -541,9 +541,9 @@ async function loginSuccess(username, tasksSheetUrl, isAdmin = false, credit = 0
     // Build sheet tabs and display tasks
 await createSheetTabs(tasksSheetUrl);
 
-// Start auto-refreshing tasks every 15 minutes
-startAutoRefresh();
-}
+// Auto-refresh state variable (at the top with other state variables)
+let isAutoRefreshing = false;
+
 // Auto-refresh tasks
 function startAutoRefresh() {
     // Clear any existing interval first
@@ -552,13 +552,11 @@ function startAutoRefresh() {
         refreshIntervalId = null;
     }
     
-    console.log('✓ Auto-refresh STARTED - will refresh every 15 minutes (150000ms)');
-    
-    let isRefreshing = false;
+    console.log('✓ Auto-refresh STARTED - will refresh every 15 minutes (900,000ms)');
     
     refreshIntervalId = setInterval(async () => {
         // Prevent overlapping refreshes
-        if (isRefreshing) {
+        if (isAutoRefreshing) {
             console.warn('⚠ Previous refresh still in progress, skipping this cycle');
             return;
         }
@@ -568,7 +566,7 @@ function startAutoRefresh() {
             return;
         }
         
-        isRefreshing = true;
+        isAutoRefreshing = true;
         const refreshTime = new Date().toLocaleTimeString();
         console.log(`🔄 Auto-refresh triggered at ${refreshTime}`);
         
@@ -579,7 +577,7 @@ function startAutoRefresh() {
         } catch (error) {
             console.error('❌ Error during auto-refresh:', error);
         } finally {
-            isRefreshing = false;
+            isAutoRefreshing = false;
         }
     }, REFRESH_INTERVAL);
 }
@@ -588,8 +586,10 @@ function stopAutoRefresh() {
     if (refreshIntervalId) {
         clearInterval(refreshIntervalId);
         refreshIntervalId = null;
+        isAutoRefreshing = false;
         console.log('⏹ Auto-refresh STOPPED');
     }
+}
 }// Handle add user (admin only)
 async function handleAddUserOk() {
     const username = document.getElementById('addUserUsername').value.trim();
