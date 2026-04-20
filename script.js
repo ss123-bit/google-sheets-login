@@ -49,7 +49,7 @@ let currentUsername = '';
 // Auto-refresh state
 let refreshIntervalId = null;
 let isAutoRefreshing = false;
-const REFRESH_INTERVAL = 150000; // 15 minutes in milliseconds
+const REFRESH_INTERVAL = 10000; // n milliseconds
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     loginForm.addEventListener('submit', handleLogin);
